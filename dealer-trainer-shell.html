@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Rail — Mixed Games Dealer Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt-900:#0B2E22;
+    --felt-800:#123B2B;
+    --felt-700:#194B37;
+    --brass-500:#C9A227;
+    --brass-300:#E3C766;
+    --chip-red:#A6303A;
+    --chip-blue:#3E6E93;
+    --ivory-100:#EDE6D6;
+    --ivory-200:#DCD3BE;
+    --slate-400:#7C9686;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--felt-900);
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(201,162,39,0.06), transparent 60%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color:var(--ivory-100);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  /* ---- Header / Plaque ---- */
+  header{
+    padding:38px 24px 28px;
+    text-align:center;
+    border-bottom:1px solid rgba(201,162,39,0.25);
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--brass-500);
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px,6vw,52px);
+    margin:0;
+    letter-spacing:-0.01em;
+    color:var(--ivory-100);
+  }
+  h1 em{
+    font-style:italic;
+    font-weight:500;
+    color:var(--brass-300);
+  }
+  .subhead{
+    font-size:14px;
+    color:var(--slate-400);
+    margin-top:10px;
+    max-width:480px;
+    margin-left:auto;
+    margin-right:auto;
+    line-height:1.5;
+  }
+
+  /* ---- Layout ---- */
+  main{
+    max-width:960px;
+    margin:0 auto;
+    padding:36px 20px 80px;
+  }
+
+  .category-block{
+    margin-bottom:46px;
+  }
+  .category-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:16px;
+    border-bottom:1px solid rgba(237,230,214,0.12);
+    padding-bottom:8px;
+  }
+  .category-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    background:var(--felt-700);
+    border:1px solid rgba(201,162,39,0.4);
+    color:var(--brass-300);
+    padding:3px 8px;
+    border-radius:var(--radius);
+    white-space:nowrap;
+  }
+  .category-name{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:19px;
+    color:var(--ivory-100);
+  }
+  .category-desc{
+    font-size:12.5px;
+    color:var(--slate-400);
+    margin-left:auto;
+    text-align:right;
+    display:none;
+  }
+  @media (min-width:640px){ .category-desc{display:block;} }
+
+  .card-rack{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
+    gap:12px;
+  }
+
+  .game-card{
+    position:relative;
+    background:linear-gradient(180deg, var(--felt-800), var(--felt-700));
+    border:1px solid rgba(237,230,214,0.14);
+    border-radius:var(--radius);
+    padding:16px 14px 14px;
+    cursor:pointer;
+    transition:border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+    text-align:left;
+    color:inherit;
+    font:inherit;
+  }
+  .game-card:hover{
+    border-color:rgba(201,162,39,0.55);
+    transform:translateY(-2px);
+  }
+  .game-card:focus-visible{
+    outline:2px solid var(--brass-300);
+    outline-offset:2px;
+  }
+  .game-card.active{
+    border-color:var(--brass-500);
+    background:linear-gradient(180deg, #1C4A36, #123B2B);
+  }
+  .game-card.active::before{
+    content:"";
+    position:absolute;
+    top:-1px; left:-1px; right:-1px;
+    height:3px;
+    background:var(--brass-500);
+    border-radius:var(--radius) var(--radius) 0 0;
+  }
+  .card-pot{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    margin-bottom:6px;
+  }
+  .card-pot.split{ color:var(--chip-blue); }
+  .card-pot.qual{ color:var(--chip-red); }
+  .card-title{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:16.5px;
+    line-height:1.25;
+    color:var(--ivory-100);
+  }
+  .card-hint{
+    font-size:12px;
+    color:var(--slate-400);
+    margin-top:6px;
+    line-height:1.4;
+  }
+
+  /* ---- Dealer button (signature element) ---- */
+  .dealer-button{
+    position:absolute;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--ivory-100), var(--ivory-200) 60%, #b9ad8f 100%);
+    color:var(--felt-900);
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.4), 0 0 0 2px var(--brass-500);
+    top:-9px;
+    right:10px;
+    opacity:0;
+    transform:scale(0.6);
+    transition:opacity 0.22s ease, transform 0.22s ease;
+    pointer-events:none;
+  }
+  .game-card.active .dealer-button{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  /* ---- Detail panel ---- */
+  #detail-wrap{
+    position:sticky;
+    bottom:0;
+    margin-top:20px;
+  }
+  #detail{
+    background:var(--felt-800);
+    border:1px solid rgba(201,162,39,0.4);
+    border-radius:var(--radius);
+    padding:22px 20px;
+    box-shadow:0 -12px 30px rgba(0,0,0,0.35);
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
+  }
+  #detail.open{
+    max-height:600px;
+    opacity:1;
+    overflow-y:auto;
+  }
+  .detail-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:14px;
+  }
+  .detail-title{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:22px;
+  }
+  .detail-meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--slate-400);
+    margin-top:4px;
+  }
+  .close-btn{
+    background:none;
+    border:1px solid rgba(237,230,214,0.25);
+    color:var(--ivory-200);
+    border-radius:var(--radius);
+    padding:5px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .close-btn:hover{ border-color:var(--brass-500); color:var(--brass-300); }
+
+  .detail-section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass-500);
+    margin:16px 0 8px;
+  }
+  .flow-steps{
+    list-style:none;
+    margin:0;
+    padding:0;
+    counter-reset:step;
+  }
+  .flow-steps li{
+    counter-increment:step;
+    position:relative;
+    padding-left:32px;
+    padding-bottom:10px;
+    font-size:13.5px;
+    line-height:1.5;
+    color:var(--ivory-200);
+    border-left:1px solid rgba(237,230,214,0.15);
+    margin-left:11px;
+  }
+  .flow-steps li:last-child{ border-color:transparent; }
+  .flow-steps li::before{
+    content:counter(step);
+    position:absolute;
+    left:-11px;
+    top:-1px;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--felt-900);
+    border:1px solid var(--brass-500);
+    color:var(--brass-300);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .detail-notes{
+    font-size:13px;
+    color:var(--ivory-200);
+    line-height:1.55;
+  }
+  .detail-notes strong{ color:var(--brass-300); font-weight:600; }
+  .placeholder-tag{
+    display:inline-block;
+    margin-top:14px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    border:1px dashed rgba(124,150,134,0.5);
+    padding:5px 9px;
+    border-radius:var(--radius);
+  }
+
+  footer{
+    text-align:center;
+    padding:20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--slate-400);
+    letter-spacing:0.06em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Dealer Reference &amp; Trainer</div>
+  <h1>The <em>Rail</em></h1>
+  <div class="subhead">Select a spread to review dealing procedure, betting order, and odd-chip rules — built from the floor, for the floor.</div>
+</header>
+
+<main>
+  <div id="categories"></div>
+
+  <div id="detail-wrap">
+    <div id="detail"></div>
+  </div>
+</main>
+
+<footer>SHELL PROTOTYPE — SCENARIO &amp; QUIZ MODES COMING NEXT</footer>
+
+<script>
+const DATA = [
+  {
+    tag: "Triple Draw",
+    desc: "Down cards only, no board",
+    games: [
+      { name:"Badugi", pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
+        "Deal 4 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Best hand: 4 unpaired, unsuited, ace-low cards. Always burn before every draw, even with no action." },
+      { name:"A-5 Lowball", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Straights and flushes don't count against you. UTG sits out if table is 7-handed." },
+      { name:"2-7 Lowball", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Ace plays high. Straights and flushes count against you — best hand is 7-5-4-3-2 unsuited." },
+      { name:"Badacey", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"50% best Badugi (4-card) + 50% best A-5 low (5-card). Odd chip → best 5-card hand." },
+      { name:"Baducey", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"50% best Badugi (4-card) + 50% best 2-7 low (5-card). Odd chip → best 5-card hand." },
+      { name:"Archie", pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"High (pair of 9s or better) / Low (8-or-better). No qualifiers either way → pot splits among remaining players. Odd chip → best high hand." }
+    ]
+  },
+  {
+    tag: "7-Card Stud",
+    desc: "Individual up/down cards, 3rd–7th street",
+    games: [
+      { name:"Standard Stud / Razz", pot:"single", meta:"2 down, 1 up to start", flow:[
+        "3rd street: 2 down + 1 up — bring-in acts",
+        "Burn, deal 4th street — betting round",
+        "Burn, deal 5th street — betting round",
+        "Burn, deal 6th street — betting round",
+        "Burn, deal 7th street down — betting round",
+        "Showdown"
+      ], notes:"Stud Hi-Lo &amp; Stud 8b: low brings in, high drives. Razz: high brings in, low drives. Announce pairs as they hit." },
+      { name:"Super Stud / Super Pat", pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street — or declare Pat",
+        "Burn, deal 4th street — betting round",
+        "Burn, deal 5th street — betting round",
+        "Burn, deal 6th street — betting round",
+        "Burn, deal 7th street — betting round",
+        "Showdown"
+      ], notes:"Super Pat locks in the 5-card hand and drives betting every round after. Multiple Pats → bring-in acts as the button. Variants: Studugi, 8-or-better, Any-Any." },
+      { name:"Super Hi-Lo Stud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, King♠ is highest. Looking for best Hi + best 8-or-better Lo. Odd chip → Hi hand." },
+      { name:"Super Baducey", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, low hand drives action. 50% Badugi + 50% best 2-7 low. Odd chip → low/best 5-card hand." },
+      { name:"Super Badacey", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, low hand drives action. 50% Badugi + 50% best A-5 low. Odd chip → low/best 5-card hand." }
+    ]
+  },
+  {
+    tag: "Omaha & Flop",
+    desc: "Hole cards + shared community board",
+    games: [
+      { name:"Drawmaha Hi", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Deal 5 hole cards — betting round",
+        "Burn, deal flop (3) — betting round",
+        "Players declare draw (up to 3 cards)",
+        "Burn, deal turn — deal replacements (no burn) — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"50% best Omaha Hi (2 hand + 3 board) + 50% best 5-card draw Hi. Odd chip → best draw hand." },
+      { name:"Drawmaha A-5", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
+      ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand." },
+      { name:"Drawmaha 2-7", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as 2-7 low (ace high)"
+      ], notes:"50% Omaha Hi + 50% best 2-7 low in hole cards. Odd chip → best draw hand." },
+      { name:"Drawmaha 49", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored by point count"
+      ], notes:"50% Omaha Hi + 50% highest point count (Aces=1, faces=0, number cards=value, max 49). Odd chip → best draw hand." },
+      { name:"Drawmaha Badugi", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as Badugi"
+      ], notes:"50% Omaha Hi + 50% best Badugi in hole cards. Odd chip → best draw hand." },
+      { name:"Double Board Omaha", pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
+        "Deal hole cards — betting round",
+        "Burn, deal flop on both boards — betting round",
+        "Burn, deal turn on both boards — betting round",
+        "Burn, deal river on both boards — betting round",
+        "Showdown"
+      ], notes:"50% best Omaha Hi Board 1 + 50% best Omaha Hi Board 2. PLO or fixed-limit." },
+      { name:"Pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+        "Deal 3 hole cards",
+        "Discard 1 down to 2 — before any flop betting",
+        "Burn, deal flop — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"Texas Hold'em high hand. Discard happens before the flop is even bet on." },
+      { name:"Crazy Pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+        "Deal 3 hole cards",
+        "Burn, deal flop — betting round",
+        "Discard 1 down to 2 — after flop betting",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"Same as Pineapple, but the discard happens AFTER the flop betting round — key procedural difference." }
+    ]
+  },
+  {
+    tag: "Texas Hold'em",
+    desc: "Straight community-board game",
+    games: [
+      { name:"Texas Hold'em", pot:"single", meta:"2 hole cards · Hold'em board", flow:[
+        "Deal 2 hole cards to each player",
+        "Betting round (preflop)",
+        "Burn, deal flop (3) — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"The baseline format the Pineapple variants are built from — good reference point before dealing the mixed spreads." }
+    ]
+  }
+];
+
+const potClass = { split:"split", qual:"qual" };
+const catsEl = document.getElementById('categories');
+const detailEl = document.getElementById('detail');
+let activeCard = null;
+
+DATA.forEach(cat => {
+  const block = document.createElement('div');
+  block.className = 'category-block';
+
+  const head = document.createElement('div');
+  head.className = 'category-head';
+  head.innerHTML = `
+    <span class="category-tag">${cat.tag}</span>
+    <span class="category-name">${cat.tag}</span>
+    <span class="category-desc">${cat.desc}</span>
+  `;
+  block.appendChild(head);
+
+  const rack = document.createElement('div');
+  rack.className = 'card-rack';
+
+  cat.games.forEach(game => {
+    const card = document.createElement('button');
+    card.className = 'game-card';
+    card.innerHTML = `
+      <span class="dealer-button">D</span>
+      <div class="card-pot ${potClass[game.pot] || ''}">${game.pot}</div>
+      <div class="card-title">${game.name}</div>
+      <div class="card-hint">${game.meta}</div>
+    `;
+    card.addEventListener('click', () => selectGame(card, game, cat.tag));
+    rack.appendChild(card);
+  });
+
+  block.appendChild(rack);
+  catsEl.appendChild(block);
+});
+
+function selectGame(card, game, catTag){
+  if(activeCard) activeCard.classList.remove('active');
+  card.classList.add('active');
+  activeCard = card;
+
+  detailEl.innerHTML = `
+    <div class="detail-top">
+      <div>
+        <div class="detail-title">${game.name}</div>
+        <div class="detail-meta">${catTag} · ${game.meta}</div>
+      </div>
+      <button class="close-btn" id="closeDetail">CLOSE</button>
+    </div>
+    <div class="detail-section-label">Dealing Flow</div>
+    <ol class="flow-steps">
+      ${game.flow.map(step => `<li>${step}</li>`).join('')}
+    </ol>
+    <div class="detail-section-label">Notes</div>
+    <div class="detail-notes">${game.notes}</div>
+    <div class="placeholder-tag">Scenario &amp; quiz mode — coming next</div>
+  `;
+  detailEl.classList.add('open');
+  document.getElementById('closeDetail').addEventListener('click', () => {
+    detailEl.classList.remove('open');
+    card.classList.remove('active');
+    activeCard = null;
+  });
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+</script>
+
+</body>
+</html>
