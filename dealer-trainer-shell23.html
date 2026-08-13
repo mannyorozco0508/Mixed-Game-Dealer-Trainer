@@ -433,6 +433,10 @@
     border-color:var(--brass-500);
     color:var(--brass-300);
   }
+  .seat-chip.button-seat{
+    border-color:var(--chip-blue);
+    color:#8FB4D4;
+  }
 
   .scenario-body{
     flex:1;
@@ -440,6 +444,29 @@
     max-width:640px;
     margin:0 auto;
     width:100%;
+  }
+  .landscape-split{
+    display:block;
+  }
+  /* Optional landscape layout for phones — kicks in only if the device is
+     physically rotated; portrait stays the default, nothing is forced. */
+  @media (orientation:landscape) and (max-height:500px){
+    .scenario-body{ max-width:900px; padding:16px 20px 24px; }
+    .landscape-split{
+      display:flex;
+      gap:24px;
+      align-items:flex-start;
+    }
+    .poker-table{
+      flex:0 0 360px;
+      height:230px;
+      margin-bottom:0;
+    }
+    .qa-column{
+      flex:1 1 auto;
+      min-width:0;
+    }
+    .scenario-prompt{ font-size:17px; margin-bottom:14px; }
   }
   .street-tag{
     font-family:'IBM Plex Mono', monospace;
@@ -645,9 +672,32 @@
     margin-bottom:3px;
     display:inline-block;
   }
-  .seat-pos.dealer .seat-label{
-    border-color:var(--brass-500);
-    color:var(--brass-300);
+  .seat-pos.dealer-pos{
+    z-index:2;
+  }
+  .dealer-label{
+    border-color:var(--brass-500) !important;
+    color:var(--brass-300) !important;
+    background:rgba(11,46,34,0.97) !important;
+    font-size:10px !important;
+    padding:4px 9px !important;
+  }
+  .btn-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:13px;
+    height:13px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--ivory-100), var(--ivory-200) 60%, #b9ad8f 100%);
+    color:var(--felt-900);
+    font-size:8px;
+    font-weight:700;
+    box-shadow:0 0 0 1.5px var(--chip-blue);
+    margin-left:3px;
+  }
+  .seat-pos.has-button .seat-label{
+    border-color:var(--chip-blue);
   }
   .seat-cards{
     display:flex;
@@ -1648,22 +1698,39 @@ let reviewQueue = [];
 let reviewPos = 0;
 let activeStepIndex = 0;
 let tableSeats = 0;
-let dealerSeatIndex = 0;
+let buttonSeatIndex = null;
 let seatHoleCards = [];
 let tableBoardCards = [];
 let tableBoard2Cards = [];
 
-function buildTable(game){
-  const numPlayers = 3 + Math.floor(Math.random() * 4); // 3-6 players
-  const dealerSeat = Math.floor(Math.random() * numPlayers);
-  dealerSeatIndex = dealerSeat;
-  tableSeats = numPlayers;
+// Games where a dealer button rotates player-to-player each hand.
+// 7-card stud formats have no button — bring-in determines action instead.
+const BUTTON_DEALCATS = new Set(['draw4','draw5','drawmaha','doubleBoard','pineapple','crazyPineapple','holdem']);
+
+function buildTable(game, isRedeal){
+  const numPlayers = tableSeats; // fixed for the whole practice session, set in startScenario
+  const usesButton = !!(game && BUTTON_DEALCATS.has(game.dealCat));
+
+  if(usesButton){
+    if(isRedeal && buttonSeatIndex !== null){
+      buttonSeatIndex = (buttonSeatIndex + 1) % numPlayers; // button moves one seat every hand
+    } else {
+      buttonSeatIndex = Math.floor(Math.random() * numPlayers);
+    }
+  } else {
+    buttonSeatIndex = null; // stud formats: no button at all
+  }
 
   tableStrip.innerHTML = '';
+  const dealerChip = document.createElement('span');
+  dealerChip.className = 'seat-chip dealer';
+  dealerChip.textContent = '\u25CF YOU (DEALER)';
+  tableStrip.appendChild(dealerChip);
   for(let i = 0; i < numPlayers; i++){
     const chip = document.createElement('span');
-    chip.className = 'seat-chip' + (i === dealerSeat ? ' dealer' : '');
-    chip.textContent = (i === dealerSeat ? '\u25CF DEALER · ' : '') + 'Seat ' + (i+1);
+    const onButton = usesButton && i === buttonSeatIndex;
+    chip.className = 'seat-chip' + (onButton ? ' button-seat' : '');
+    chip.textContent = 'Seat ' + (i+1) + (onButton ? ' \u25CF BTN' : '');
     tableStrip.appendChild(chip);
   }
 
@@ -1687,6 +1754,15 @@ function buildTable(game){
   return numPlayers;
 }
 
+// Player seats sweep clockwise starting just left of the dealer's fixed
+// bottom position, all the way around to just right of the dealer —
+// matching the real vantage point of a dealer standing at the table.
+function seatAngle(i, n){
+  const startAngle = 116;  // just clockwise of bottom (90deg) = dealer's left
+  const span = 308;        // leaves a gap at the bottom for the dealer's own spot
+  return n <= 1 ? 90 : startAngle + i * (span / (n - 1));
+}
+
 function renderTableView(stepIndex){
   const pokerTable = document.getElementById('pokerTable');
   if(!pokerTable) return;
@@ -1706,17 +1782,27 @@ function renderTableView(stepIndex){
   const boardCount = pattern.board[clampedIndex];
 
   seatsEl.innerHTML = '';
+
+  // Fixed dealer (operator) position — bottom of the table, no cards.
+  const dealerDiv = document.createElement('div');
+  dealerDiv.className = 'seat-pos dealer-pos';
+  dealerDiv.style.left = '50%';
+  dealerDiv.style.top = '92%';
+  dealerDiv.innerHTML = `<div class="seat-label dealer-label">\u25CF YOU \u00b7 DEALER</div>`;
+  seatsEl.appendChild(dealerDiv);
+
   for(let i = 0; i < tableSeats; i++){
-    const angle = (360 / tableSeats) * i - 90;
+    const angle = seatAngle(i, tableSeats);
     const rad = angle * Math.PI / 180;
     const x = 50 + 37 * Math.cos(rad);
     const y = 50 + 40 * Math.sin(rad);
+    const onButton = buttonSeatIndex !== null && i === buttonSeatIndex;
     const seatDiv = document.createElement('div');
-    seatDiv.className = 'seat-pos' + (i === dealerSeatIndex ? ' dealer' : '');
+    seatDiv.className = 'seat-pos' + (onButton ? ' has-button' : '');
     seatDiv.style.left = x + '%';
     seatDiv.style.top = y + '%';
     const cards = (seatHoleCards[i] || []).slice(0, holeCount).map(c => cardHtml(c, true)).join('');
-    seatDiv.innerHTML = `<div class="seat-label">${i === dealerSeatIndex ? '\u25CF DEALER' : 'Seat ' + (i+1)}</div><div class="seat-cards">${cards}</div>`;
+    seatDiv.innerHTML = `<div class="seat-label">Seat ${i+1}${onButton ? ' <span class="btn-badge">D</span>' : ''}</div><div class="seat-cards">${cards}</div>`;
     seatsEl.appendChild(seatDiv);
   }
 
@@ -1738,7 +1824,9 @@ function startScenario(game, catTag){
   missedSteps = [];
   reviewMode = false;
   scenarioGameName.textContent = catTag + ' \u00b7 ' + game.name;
-  buildTable(game);
+  tableSeats = 3 + Math.floor(Math.random() * 4); // 3-6 players, fixed for this session
+  buttonSeatIndex = null;
+  buildTable(game, false);
   detailEl.classList.remove('open');
   if(activeCard){ activeCard.classList.remove('active'); activeCard = null; }
   overlay.classList.add('open');
@@ -1777,20 +1865,24 @@ function renderStepContent(step, tableIndex, isLastOfRun){
 
   scenarioBody.innerHTML = `
     ${reviewMode ? '<div class="review-tag">Reviewing a missed street</div>' : ''}
-    <div class="poker-table" id="pokerTable">
-      <div class="table-oval"></div>
-      <div class="board-row board1" id="boardRow1"></div>
-      <div class="board-row board2" id="boardRow2"></div>
-      <div id="seatsEl"></div>
+    <div class="landscape-split">
+      <div class="poker-table" id="pokerTable">
+        <div class="table-oval"></div>
+        <div class="board-row board1" id="boardRow1"></div>
+        <div class="board-row board2" id="boardRow2"></div>
+        <div id="seatsEl"></div>
+      </div>
+      <div class="qa-column">
+        <div class="street-tag">Street: ${step.street}</div>
+        <div class="scenario-prompt">${step.prompt}</div>
+        <div class="option-list" id="optionList"></div>
+        <div class="feedback-box" id="feedbackBox">
+          <span class="feedback-label" id="feedbackLabel"></span>
+          <span id="feedbackText"></span>
+        </div>
+        <button class="next-btn" id="nextBtn">${isLastOfRun ? (reviewMode ? 'Back to Results' : 'See Results') : 'Next Street'}</button>
+      </div>
     </div>
-    <div class="street-tag">Street: ${step.street}</div>
-    <div class="scenario-prompt">${step.prompt}</div>
-    <div class="option-list" id="optionList"></div>
-    <div class="feedback-box" id="feedbackBox">
-      <span class="feedback-label" id="feedbackLabel"></span>
-      <span id="feedbackText"></span>
-    </div>
-    <button class="next-btn" id="nextBtn">${isLastOfRun ? (reviewMode ? 'Back to Results' : 'See Results') : 'Next Street'}</button>
   `;
   renderTableView(tableIndex);
   activeStepIndex = tableIndex;
@@ -1851,22 +1943,26 @@ function renderSummary(shouldRecord){
   else msg = "That's why we practice. Run it back and lock in the sequence.";
 
   scenarioBody.innerHTML = `
-    <div class="poker-table" id="pokerTable">
-      <div class="table-oval"></div>
-      <div class="board-row board1" id="boardRow1"></div>
-      <div class="board-row board2" id="boardRow2"></div>
-      <div id="seatsEl"></div>
-    </div>
-    <div class="summary-wrap">
-      <div class="summary-label">Hand Complete</div>
-      <div class="summary-score">${correctCount}/${steps.length}</div>
-      <div class="summary-label">Correct</div>
-      <div class="summary-msg">${msg}</div>
-      <div class="summary-actions">
-        <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
-        <button class="summary-btn ghost" id="exitToShellBtn">Back to Games</button>
+    <div class="landscape-split">
+      <div class="poker-table" id="pokerTable">
+        <div class="table-oval"></div>
+        <div class="board-row board1" id="boardRow1"></div>
+        <div class="board-row board2" id="boardRow2"></div>
+        <div id="seatsEl"></div>
       </div>
-      ${missedSteps.length > 0 ? `<button class="review-btn" id="reviewMissesBtn">Review ${missedSteps.length} Missed Street${missedSteps.length > 1 ? 's' : ''}</button>` : ''}
+      <div class="qa-column">
+        <div class="summary-wrap">
+          <div class="summary-label">Hand Complete</div>
+          <div class="summary-score">${correctCount}/${steps.length}</div>
+          <div class="summary-label">Correct</div>
+          <div class="summary-msg">${msg}</div>
+          <div class="summary-actions">
+            <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
+            <button class="summary-btn ghost" id="exitToShellBtn">Back to Games</button>
+          </div>
+          ${missedSteps.length > 0 ? `<button class="review-btn" id="reviewMissesBtn">Review ${missedSteps.length} Missed Street${missedSteps.length > 1 ? 's' : ''}</button>` : ''}
+        </div>
+      </div>
     </div>
   `;
   renderTableView(steps.length - 1);
@@ -1877,7 +1973,7 @@ function renderSummary(shouldRecord){
     correctCount = 0;
     missedSteps = [];
     reviewMode = false;
-    buildTable(currentScenario);
+    buildTable(currentScenario, true);
     renderStep();
   });
   document.getElementById('exitToShellBtn').addEventListener('click', closeScenario);
