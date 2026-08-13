@@ -576,6 +576,97 @@
     border:1px solid rgba(237,230,214,0.25);
     color:var(--ivory-200);
   }
+
+  /* ---- Birds-eye poker table ---- */
+  .poker-table{
+    position:relative;
+    height:260px;
+    margin-bottom:24px;
+  }
+  .table-oval{
+    position:absolute;
+    inset:14px 34px;
+    border-radius:50%;
+    background:radial-gradient(ellipse at 50% 40%, #1C4A36, #0B2E22 82%);
+    border:3px solid var(--brass-500);
+    box-shadow:inset 0 0 26px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .board-row{
+    position:absolute;
+    left:50%;
+    display:flex;
+    gap:4px;
+    transform:translateX(-50%);
+  }
+  .board-row.board1{ top:44%; transform:translate(-50%,-50%); }
+  .board-row.board2{ top:58%; transform:translate(-50%,-50%); }
+  .board-card{
+    width:24px;
+    height:34px;
+    background:var(--ivory-100);
+    border-radius:3px;
+    border:1px solid rgba(0,0,0,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:10px;
+    color:#1a1a1a;
+    box-shadow:0 1px 3px rgba(0,0,0,0.4);
+    animation:cardPop 0.25s ease;
+  }
+  .board-card.red{ color:var(--chip-red); }
+  @keyframes cardPop{
+    from{ transform:scale(0.4) translateY(-6px); opacity:0; }
+    to{ transform:scale(1) translateY(0); opacity:1; }
+  }
+  .seat-pos{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    text-align:center;
+    width:76px;
+  }
+  .seat-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--ivory-200);
+    background:rgba(11,46,34,0.85);
+    border:1px solid rgba(237,230,214,0.2);
+    border-radius:var(--radius);
+    padding:2px 5px;
+    margin-bottom:3px;
+    display:inline-block;
+  }
+  .seat-pos.dealer .seat-label{
+    border-color:var(--brass-500);
+    color:var(--brass-300);
+  }
+  .seat-cards{
+    display:flex;
+    justify-content:center;
+    gap:2px;
+    flex-wrap:wrap;
+  }
+  .mini-card{
+    width:16px;
+    height:23px;
+    background:var(--ivory-100);
+    border-radius:2px;
+    border:1px solid rgba(0,0,0,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:7.5px;
+    color:#1a1a1a;
+    box-shadow:0 1px 2px rgba(0,0,0,0.35);
+    animation:cardPop 0.25s ease;
+  }
+  .mini-card.red{ color:var(--chip-red); }
 </style>
 </head>
 <body>
@@ -812,7 +903,7 @@ const DATA = [
     tag: "Triple Draw",
     desc: "Down cards only, no board",
     games: [
-      { name:"Badugi", pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
+      { name:"Badugi", dealCat:"draw4", pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
         "Deal 4 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -829,7 +920,7 @@ const DATA = [
           {text:"Any 4-card straight, suits don't matter", correct:false, feedback:"Straights don't matter in Badugi at all — it's about rank and suit uniqueness, not sequence."}
         ]
       })},
-      { name:"A-5 Lowball", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"A-5 Lowball", dealCat:"draw5", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -846,7 +937,7 @@ const DATA = [
           {text:"7-5-4-3-2 unsuited, since aces play high", correct:false, feedback:"That's the 2-7 nut low, not A-5. In A-5 the ace plays low and completes the wheel."}
         ]
       })},
-      { name:"2-7 Lowball", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"2-7 Lowball", dealCat:"draw5", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -863,7 +954,7 @@ const DATA = [
           {text:"7-5-4-3-2, any suits including all one suit", correct:false, feedback:"Straights and flushes count against you in 2-7, so a flush would actually ruin this hand."}
         ]
       })},
-      { name:"Badacey", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"Badacey", dealCat:"draw5", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -880,7 +971,7 @@ const DATA = [
           {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the A-5 low hand gets an equal share, it's not winner-take-all."}
         ]
       })},
-      { name:"Baducey", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"Baducey", dealCat:"draw5", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -897,7 +988,7 @@ const DATA = [
           {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the 2-7 low hand gets an equal share, it's not winner-take-all."}
         ]
       })},
-      { name:"Archie", pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
+      { name:"Archie", dealCat:"draw5", pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -920,7 +1011,7 @@ const DATA = [
     tag: "7-Card Stud",
     desc: "Individual up/down cards, 3rd–7th street",
     games: [
-      { name:"Standard Stud / Razz", pot:"single", meta:"2 down, 1 up to start", flow:[
+      { name:"Standard Stud / Razz", dealCat:"studBasic", pot:"single", meta:"2 down, 1 up to start", flow:[
         "3rd street: 2 down + 1 up — bring-in acts",
         "Burn, deal 4th street — betting round",
         "Burn, deal 5th street — betting round",
@@ -984,7 +1075,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Super Stud / Super Pat", pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Stud / Super Pat", dealCat:"superStud", pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street — or declare Pat",
         "Burn, deal 4th street — betting round",
@@ -1001,7 +1092,7 @@ const DATA = [
           {text:"Whoever declared Pat automatically wins", correct:false, feedback:"Pat locks in a hand, it doesn't guarantee a win — best hand at showdown still takes it."}
         ]
       })},
-      { name:"Super Hi-Lo Stud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Hi-Lo Stud", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1015,7 +1106,7 @@ const DATA = [
           {text:"Winner take all to best Hi hand, no qualifier needed for Lo", correct:false, feedback:"This is a split-pot game with an 8-or-better qualifier for the low side — it's not winner-take-all."}
         ]
       })},
-      { name:"Super Baducey", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Baducey", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1029,7 +1120,7 @@ const DATA = [
           {text:"Winner take all to the best 5-card hand", correct:false, feedback:"This is a split pot — Badugi and 2-7 low each take half, not winner-take-all."}
         ]
       })},
-      { name:"Super Badacey", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Badacey", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1049,7 +1140,7 @@ const DATA = [
     tag: "Omaha & Flop",
     desc: "Hole cards + shared community board",
     games: [
-      { name:"Drawmaha Hi", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha Hi", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Deal 5 hole cards — betting round",
         "Burn, deal flop (3) — betting round",
         "Players declare draw (up to 3 cards)",
@@ -1113,7 +1204,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Drawmaha A-5", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha A-5", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
       ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1124,7 +1215,7 @@ const DATA = [
           {text:"Odd chip goes to the Omaha Hi side", correct:false, feedback:"In every Drawmaha variant, the odd chip goes to the draw/low hand side, not the Omaha Hi side."}
         ]
       })},
-      { name:"Drawmaha 2-7", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha 2-7", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as 2-7 low (ace high)"
       ], notes:"50% Omaha Hi + 50% best 2-7 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1135,7 +1226,7 @@ const DATA = [
           {text:"Straights and flushes don't count against the low hand", correct:false, feedback:"In 2-7 scoring, straights and flushes DO count against you — that's exactly what makes it 2-7 instead of A-5."}
         ]
       })},
-      { name:"Drawmaha 49", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+      { name:"Drawmaha 49", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board", flow:[
         "Same flow as Drawmaha Hi — draw hand scored by point count"
       ], notes:"50% Omaha Hi + 50% highest point count (Aces=1, faces=0, number cards=value, max 49). Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1146,7 +1237,7 @@ const DATA = [
           {text:"Face cards count as 10 points each", correct:false, feedback:"Face cards count as 0 in this format — aces count as 1, and number cards count at face value."}
         ]
       })},
-      { name:"Drawmaha Badugi", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+      { name:"Drawmaha Badugi", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as Badugi"
       ], notes:"50% Omaha Hi + 50% best Badugi in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1157,7 +1248,7 @@ const DATA = [
           {text:"All 5 hole cards must be used for the Badugi hand", correct:false, feedback:"Badugi is always best-4-of-however-many-available — you use the best 4 out of the 5 hole cards, not all 5."}
         ]
       })},
-      { name:"Double Board Omaha", pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
+      { name:"Double Board Omaha", dealCat:"doubleBoard", pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
         "Deal hole cards — betting round",
         "Burn, deal flop on both boards — betting round",
         "Burn, deal turn on both boards — betting round",
@@ -1211,7 +1302,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+      { name:"Pineapple", dealCat:"pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
         "Deal 3 hole cards",
         "Discard 1 down to 2 — before any flop betting",
         "Burn, deal flop — betting round",
@@ -1257,7 +1348,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Crazy Pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+      { name:"Crazy Pineapple", dealCat:"crazyPineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
         "Deal 3 hole cards",
         "Burn, deal flop — betting round",
         "Discard 1 down to 2 — after flop betting",
@@ -1309,7 +1400,7 @@ const DATA = [
     tag: "Texas Hold'em",
     desc: "Straight community-board game",
     games: [
-      { name:"Texas Hold'em", pot:"single", meta:"2 hole cards · Hold'em board", flow:[
+      { name:"Texas Hold'em", dealCat:"holdem", pot:"single", meta:"2 hole cards · Hold'em board", flow:[
         "Deal 2 hole cards to each player",
         "Betting round (preflop)",
         "Burn, deal flop (3) — betting round",
@@ -1433,7 +1524,37 @@ function selectGame(card, game, catTag){
   card.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-/* ---------------- Scenario Engine ---------------- */
+/* ---------------- Card Deck & Deal Patterns ---------------- */
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const SUITS = [['\u2660','black'],['\u2665','red'],['\u2666','red'],['\u2663','black']];
+function freshDeck(){
+  const d = [];
+  RANKS.forEach(r => SUITS.forEach(([s,c]) => d.push({r, s, c})));
+  for(let i = d.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+function cardHtml(c, mini){
+  const cls = mini ? 'mini-card' : 'board-card';
+  return `<span class="${cls}${c.c === 'red' ? ' red' : ''}">${c.r}${c.s}</span>`;
+}
+
+// Cumulative hole/board card counts visible while each scenario step is on screen.
+const DEAL_PATTERNS = {
+  draw4:          { hole:[0,4,4,4,4], board:[0,0,0,0,0] },
+  draw5:          { hole:[0,5,5,5,5], board:[0,0,0,0,0] },
+  studBasic:      { hole:[3,3,3,4,6,7], board:[0,0,0,0,0,0] },
+  superStud:      { hole:[0,5,3,3,3,7], board:[0,0,0,0,0,0] },
+  drawmaha:       { hole:[0,5,5,5,5,5], board:[0,0,3,3,4,5] },
+  doubleBoard:    { hole:[0,5,5,5,5], board:[0,0,3,4,5], board2:[0,0,3,4,5] },
+  pineapple:      { hole:[3,2,2,2], board:[0,0,3,4] },
+  crazyPineapple: { hole:[3,3,3,2], board:[0,0,3,3] },
+  holdem:         { hole:[0,2,2,2], board:[0,0,3,5] }
+};
+
+
 const overlay = document.getElementById('scenario-overlay');
 const scenarioBody = document.getElementById('scenarioBody');
 const progressFill = document.getElementById('progressFill');
@@ -1442,10 +1563,18 @@ const scenarioGameName = document.getElementById('scenarioGameName');
 let currentScenario = null;
 let stepIndex = 0;
 let correctCount = 0;
+let tableSeats = 0;
+let dealerSeatIndex = 0;
+let seatHoleCards = [];
+let tableBoardCards = [];
+let tableBoard2Cards = [];
 
-function buildTable(){
+function buildTable(game){
   const numPlayers = 3 + Math.floor(Math.random() * 4); // 3-6 players
   const dealerSeat = Math.floor(Math.random() * numPlayers);
+  dealerSeatIndex = dealerSeat;
+  tableSeats = numPlayers;
+
   tableStrip.innerHTML = '';
   for(let i = 0; i < numPlayers; i++){
     const chip = document.createElement('span');
@@ -1453,21 +1582,84 @@ function buildTable(){
     chip.textContent = (i === dealerSeat ? '\u25CF DEALER · ' : '') + 'Seat ' + (i+1);
     tableStrip.appendChild(chip);
   }
+
+  const pattern = game && game.dealCat ? DEAL_PATTERNS[game.dealCat] : null;
+  seatHoleCards = [];
+  tableBoardCards = [];
+  tableBoard2Cards = [];
+  if(pattern){
+    const deck = freshDeck();
+    const holeMax = Math.max(...pattern.hole);
+    for(let i = 0; i < numPlayers; i++){
+      seatHoleCards.push(deck.splice(0, holeMax));
+    }
+    const boardMax = Math.max(...pattern.board);
+    tableBoardCards = deck.splice(0, boardMax);
+    if(pattern.board2){
+      const board2Max = Math.max(...pattern.board2);
+      tableBoard2Cards = deck.splice(0, board2Max);
+    }
+  }
   return numPlayers;
+}
+
+function renderTableView(stepIndex){
+  const pokerTable = document.getElementById('pokerTable');
+  if(!pokerTable) return;
+  const pattern = currentScenario && currentScenario.dealCat ? DEAL_PATTERNS[currentScenario.dealCat] : null;
+  if(!pattern){
+    pokerTable.style.display = 'none';
+    return;
+  }
+  pokerTable.style.display = 'block';
+
+  const seatsEl = document.getElementById('seatsEl');
+  const board1El = document.getElementById('boardRow1');
+  const board2El = document.getElementById('boardRow2');
+
+  const clampedIndex = Math.min(stepIndex, pattern.hole.length - 1);
+  const holeCount = pattern.hole[clampedIndex];
+  const boardCount = pattern.board[clampedIndex];
+
+  seatsEl.innerHTML = '';
+  for(let i = 0; i < tableSeats; i++){
+    const angle = (360 / tableSeats) * i - 90;
+    const rad = angle * Math.PI / 180;
+    const x = 50 + 40 * Math.cos(rad);
+    const y = 50 + 34 * Math.sin(rad);
+    const seatDiv = document.createElement('div');
+    seatDiv.className = 'seat-pos' + (i === dealerSeatIndex ? ' dealer' : '');
+    seatDiv.style.left = x + '%';
+    seatDiv.style.top = y + '%';
+    const cards = (seatHoleCards[i] || []).slice(0, holeCount).map(c => cardHtml(c, true)).join('');
+    seatDiv.innerHTML = `<div class="seat-label">${i === dealerSeatIndex ? '\u25CF DEALER' : 'Seat ' + (i+1)}</div><div class="seat-cards">${cards}</div>`;
+    seatsEl.appendChild(seatDiv);
+  }
+
+  board1El.innerHTML = tableBoardCards.slice(0, boardCount).map(c => cardHtml(c, false)).join('');
+  if(pattern.board2){
+    const board2Count = pattern.board2[clampedIndex];
+    board2El.innerHTML = tableBoard2Cards.slice(0, board2Count).map(c => cardHtml(c, false)).join('');
+    board2El.style.display = 'flex';
+  } else {
+    board2El.innerHTML = '';
+    board2El.style.display = 'none';
+  }
 }
 
 function startScenario(game, catTag){
   currentScenario = game;
   stepIndex = 0;
   correctCount = 0;
-  scenarioGameName.textContent = catTag + ' · ' + game.name;
-  const numPlayers = buildTable();
+  scenarioGameName.textContent = catTag + ' \u00b7 ' + game.name;
+  buildTable(game);
   detailEl.classList.remove('open');
   if(activeCard){ activeCard.classList.remove('active'); activeCard = null; }
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
   renderStep();
 }
+
 
 function renderStep(){
   const steps = currentScenario.scenario;
@@ -1484,6 +1676,12 @@ function renderStep(){
     .sort(() => Math.random() - 0.5);
 
   scenarioBody.innerHTML = `
+    <div class="poker-table" id="pokerTable">
+      <div class="table-oval"></div>
+      <div class="board-row board1" id="boardRow1"></div>
+      <div class="board-row board2" id="boardRow2"></div>
+      <div id="seatsEl"></div>
+    </div>
     <div class="street-tag">Street: ${step.street}</div>
     <div class="scenario-prompt">${step.prompt}</div>
     <div class="option-list" id="optionList"></div>
@@ -1493,6 +1691,7 @@ function renderStep(){
     </div>
     <button class="next-btn" id="nextBtn">${stepIndex === steps.length - 1 ? 'See Results' : 'Next Street'}</button>
   `;
+  renderTableView(stepIndex);
 
   const optionList = document.getElementById('optionList');
   opts.forEach(opt => {
@@ -1546,6 +1745,12 @@ function renderSummary(){
   else msg = "That's why we practice. Run it back and lock in the sequence.";
 
   scenarioBody.innerHTML = `
+    <div class="poker-table" id="pokerTable">
+      <div class="table-oval"></div>
+      <div class="board-row board1" id="boardRow1"></div>
+      <div class="board-row board2" id="boardRow2"></div>
+      <div id="seatsEl"></div>
+    </div>
     <div class="summary-wrap">
       <div class="summary-label">Hand Complete</div>
       <div class="summary-score">${correctCount}/${steps.length}</div>
@@ -1557,10 +1762,11 @@ function renderSummary(){
       </div>
     </div>
   `;
+  renderTableView(steps.length - 1);
   document.getElementById('dealAgainBtn').addEventListener('click', () => {
     stepIndex = 0;
     correctCount = 0;
-    buildTable();
+    buildTable(currentScenario);
     renderStep();
   });
   document.getElementById('exitToShellBtn').addEventListener('click', closeScenario);
