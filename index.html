@@ -757,6 +757,10 @@
   }
 </style>
 </head>
+
+<script src="cards-eval.js"></script>
+<script src="betting-engine.js"></script>
+<script src="ai-players.js"></script>
 <body>
 
 <header>
@@ -772,6 +776,21 @@
     <div id="detail"></div>
   </div>
 </main>
+
+<div id="engine-test-block" style="max-width:960px;margin:0 auto;padding:0 20px 40px;">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;border-bottom:1px solid rgba(237,230,214,0.12);padding-bottom:8px;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;background:#194B37;border:1px solid rgba(201,162,39,0.4);color:#E3C766;padding:3px 8px;border-radius:2px;">Engine Test</span>
+    <span style="font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:#EDE6D6;">Hand Engine Sandbox</span>
+    <span style="font-size:12.5px;color:#7C9686;margin-left:auto;">verify the new modules live</span>
+  </div>
+  <div style="background:linear-gradient(180deg,#123B2B,#194B37);border:1px solid rgba(237,230,214,0.14);border-radius:2px;padding:18px 16px;">
+    <p style="font-size:13px;color:#DCD3BE;line-height:1.55;margin:0 0 14px;">
+      This deals a random hand and runs it through the real hand-evaluation and AI decision engine — the same code that will eventually run the live tables. Nothing here is scripted or faked.
+    </p>
+    <button id="engineTestBtn" style="background:#C9A227;color:#0B2E22;border:none;border-radius:2px;padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;">Deal &amp; Evaluate a Random Hand</button>
+    <div id="engineTestOutput" style="margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#EDE6D6;line-height:1.8;white-space:pre-wrap;"></div>
+  </div>
+</div>
 
 <footer>THE RAIL — SCENARIO MODE LIVE FOR DRAWMAHA HI</footer>
 
@@ -1993,6 +2012,64 @@ function closeScenario(){
   document.body.style.overflow = '';
 }
 document.getElementById('scenarioExit').addEventListener('click', closeScenario);
+
+/* ---------------- Engine Test Sandbox ---------------- */
+function cardLabel(c){ const suitChar = {S:'\u2660',H:'\u2665',D:'\u2666',C:'\u2663'}[c.suit]; return c.rank + suitChar; }
+function handLabel(cards){ return cards.map(cardLabel).join(' '); }
+
+document.getElementById('engineTestBtn').addEventListener('click', () => {
+  const out = document.getElementById('engineTestOutput');
+  const lines = [];
+
+  const deck = window.RailCards.freshDeck();
+  const hand5 = deck.splice(0, 5);
+
+  // Standard high (as used by Hold'em / Omaha / Stud)
+  const highScore = window.RailCards.evaluate5High(hand5);
+  const highTier = window.RailAI.classifyHigh(highScore);
+  const highTierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][highTier];
+  const highAction = window.RailAI.decideAction({ tier: highTier, facingBet: true, facingRaise: false, canCheck: false });
+  lines.push('STANDARD HIGH  (Hold\u2019em / Omaha / Stud)');
+  lines.push('  Hand: ' + handLabel(hand5));
+  lines.push('  Category score: [' + highScore.join(', ') + ']');
+  lines.push('  AI reads this as: ' + highTierName + '  ->  facing a bet, AI would: ' + highAction.toUpperCase());
+  lines.push('');
+
+  // A-5 low (Badugi's cousin / Big O's low side)
+  const a5Score = window.RailCards.bestLowA5FromN(hand5).score;
+  const a5Tier = window.RailAI.classifyA5Low(a5Score);
+  const a5TierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][a5Tier];
+  const qualifies = window.RailCards.qualifiesEightLow(a5Score);
+  lines.push('A-5 LOW  (same 5 cards)');
+  lines.push('  Best low reading: [' + a5Score.join(', ') + ']  |  8-or-better qualifier: ' + (qualifies ? 'YES' : 'no'));
+  lines.push('  AI reads this as: ' + a5TierName);
+  lines.push('');
+
+  // 2-7 low (same 5 cards, different lens)
+  const low27 = window.RailCards.bestLow27FromN(hand5);
+  const low27Tier = window.RailAI.classify27Low(low27.score);
+  const low27TierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][low27Tier];
+  lines.push('2-7 LOW  (same 5 cards)');
+  lines.push('  AI reads this as: ' + low27TierName);
+  lines.push('');
+
+  // Badugi on a fresh 4-card deal
+  const hand4 = deck.splice(0, 4);
+  const badugi = window.RailCards.bestBadugi(hand4);
+  const badugiTier = window.RailAI.classifyBadugi(badugi);
+  const badugiTierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][badugiTier];
+  lines.push('BADUGI  (fresh 4-card hand)');
+  lines.push('  Hand: ' + handLabel(hand4));
+  lines.push('  Best badugi found: ' + handLabel(badugi.cards) + '  (' + badugi.size + '-card)');
+  lines.push('  AI reads this as: ' + badugiTierName);
+  lines.push('');
+
+  // Pot-limit math sanity check
+  const maxRaise = window.RailBetting.potLimitMaxRaise(120, 20);
+  lines.push('POT-LIMIT CHECK: pot $120, facing a $20 call -> max raise $' + maxRaise + ' (should always be $140)');
+
+  out.textContent = lines.join('\n');
+});
 </script>
 
 </body>
