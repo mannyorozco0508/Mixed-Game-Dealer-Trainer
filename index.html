@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Rail — Mixed Games Dealer Trainer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%230B2E22'/%3E%3Crect x='4' y='4' width='92' height='92' rx='13' fill='none' stroke='%23C9A227' stroke-width='3'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-size='58' font-weight='700' fill='%23E3C766' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230B2E22'/%3E%3Crect x='4' y='4' width='92' height='92' rx='13' fill='none' stroke='%23C9A227' stroke-width='3'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-size='58' font-weight='700' fill='%23E3C766' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="The Rail">
+<meta name="theme-color" content="#0B2E22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt-900:#0B2E22;
+    --felt-800:#123B2B;
+    --felt-700:#194B37;
+    --brass-500:#C9A227;
+    --brass-300:#E3C766;
+    --chip-red:#A6303A;
+    --chip-blue:#3E6E93;
+    --ivory-100:#EDE6D6;
+    --ivory-200:#DCD3BE;
+    --slate-400:#7C9686;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--felt-900);
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(201,162,39,0.06), transparent 60%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color:var(--ivory-100);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  /* ---- Header / Plaque ---- */
+  header{
+    padding:38px 24px 28px;
+    text-align:center;
+    border-bottom:1px solid rgba(201,162,39,0.25);
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--brass-500);
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px,6vw,52px);
+    margin:0;
+    letter-spacing:-0.01em;
+    color:var(--ivory-100);
+  }
+  h1 em{
+    font-style:italic;
+    font-weight:500;
+    color:var(--brass-300);
+  }
+  .subhead{
+    font-size:14px;
+    color:var(--slate-400);
+    margin-top:10px;
+    max-width:480px;
+    margin-left:auto;
+    margin-right:auto;
+    line-height:1.5;
+  }
+
+  /* ---- Layout ---- */
+  main{
+    max-width:960px;
+    margin:0 auto;
+    padding:36px 20px 80px;
+  }
+
+  .category-block{
+    margin-bottom:46px;
+  }
+  .category-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:16px;
+    border-bottom:1px solid rgba(237,230,214,0.12);
+    padding-bottom:8px;
+  }
+  .category-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    background:var(--felt-700);
+    border:1px solid rgba(201,162,39,0.4);
+    color:var(--brass-300);
+    padding:3px 8px;
+    border-radius:var(--radius);
+    white-space:nowrap;
+  }
+  .category-name{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:19px;
+    color:var(--ivory-100);
+  }
+  .category-desc{
+    font-size:12.5px;
+    color:var(--slate-400);
+    margin-left:auto;
+    text-align:right;
+    display:none;
+  }
+  @media (min-width:640px){ .category-desc{display:block;} }
+
+  .card-rack{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
+    gap:12px;
+  }
+
+  .game-card{
+    position:relative;
+    background:linear-gradient(180deg, var(--felt-800), var(--felt-700));
+    border:1px solid rgba(237,230,214,0.14);
+    border-radius:var(--radius);
+    padding:16px 14px 14px;
+    cursor:pointer;
+    transition:border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+    text-align:left;
+    color:inherit;
+    font:inherit;
+  }
+  .game-card:hover{
+    border-color:rgba(201,162,39,0.55);
+    transform:translateY(-2px);
+  }
+  .game-card:focus-visible{
+    outline:2px solid var(--brass-300);
+    outline-offset:2px;
+  }
+  .game-card.active{
+    border-color:var(--brass-500);
+    background:linear-gradient(180deg, #1C4A36, #123B2B);
+  }
+  .game-card.active::before{
+    content:"";
+    position:absolute;
+    top:-1px; left:-1px; right:-1px;
+    height:3px;
+    background:var(--brass-500);
+    border-radius:var(--radius) var(--radius) 0 0;
+  }
+  .card-pot{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    margin-bottom:6px;
+  }
+  .card-pot.split{ color:var(--chip-blue); }
+  .card-pot.qual{ color:var(--chip-red); }
+  .card-title{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:16.5px;
+    line-height:1.25;
+    color:var(--ivory-100);
+  }
+  .card-hint{
+    font-size:12px;
+    color:var(--slate-400);
+    margin-top:6px;
+    line-height:1.4;
+  }
+
+  /* ---- Dealer button (signature element) ---- */
+  .dealer-button{
+    position:absolute;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--ivory-100), var(--ivory-200) 60%, #b9ad8f 100%);
+    color:var(--felt-900);
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.4), 0 0 0 2px var(--brass-500);
+    top:-9px;
+    right:10px;
+    opacity:0;
+    transform:scale(0.6);
+    transition:opacity 0.22s ease, transform 0.22s ease;
+    pointer-events:none;
+  }
+  .game-card.active .dealer-button{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  /* ---- Detail panel ---- */
+  #detail-wrap{
+    position:sticky;
+    bottom:0;
+    margin-top:20px;
+  }
+  #detail{
+    background:var(--felt-800);
+    border:1px solid rgba(201,162,39,0.4);
+    border-radius:var(--radius);
+    padding:22px 20px;
+    box-shadow:0 -12px 30px rgba(0,0,0,0.35);
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
+  }
+  #detail.open{
+    max-height:600px;
+    opacity:1;
+    overflow-y:auto;
+  }
+  .detail-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:14px;
+  }
+  .detail-title{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:22px;
+  }
+  .detail-meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--slate-400);
+    margin-top:4px;
+  }
+  .close-btn{
+    background:none;
+    border:1px solid rgba(237,230,214,0.25);
+    color:var(--ivory-200);
+    border-radius:var(--radius);
+    padding:5px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .close-btn:hover{ border-color:var(--brass-500); color:var(--brass-300); }
+
+  .detail-section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass-500);
+    margin:16px 0 8px;
+  }
+  .flow-steps{
+    list-style:none;
+    margin:0;
+    padding:0;
+    counter-reset:step;
+  }
+  .flow-steps li{
+    counter-increment:step;
+    position:relative;
+    padding-left:32px;
+    padding-bottom:10px;
+    font-size:13.5px;
+    line-height:1.5;
+    color:var(--ivory-200);
+    border-left:1px solid rgba(237,230,214,0.15);
+    margin-left:11px;
+  }
+  .flow-steps li:last-child{ border-color:transparent; }
+  .flow-steps li::before{
+    content:counter(step);
+    position:absolute;
+    left:-11px;
+    top:-1px;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--felt-900);
+    border:1px solid var(--brass-500);
+    color:var(--brass-300);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .detail-notes{
+    font-size:13px;
+    color:var(--ivory-200);
+    line-height:1.55;
+  }
+  .detail-notes strong{ color:var(--brass-300); font-weight:600; }
+  .placeholder-tag{
+    display:inline-block;
+    margin-top:14px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    border:1px dashed rgba(124,150,134,0.5);
+    padding:5px 9px;
+    border-radius:var(--radius);
+  }
+
+  footer{
+    text-align:center;
+    padding:20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--slate-400);
+    letter-spacing:0.06em;
+  }
+
+  /* ---- Practice button ---- */
+  .practice-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:16px;
+    background:var(--brass-500);
+    color:var(--felt-900);
+    border:none;
+    border-radius:var(--radius);
+    padding:10px 16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .practice-btn:hover{ background:var(--brass-300); }
+  .practice-btn svg{ width:13px; height:13px; }
+
+  /* ---- Scenario overlay ---- */
+  #scenario-overlay{
+    position:fixed;
+    inset:0;
+    background:var(--felt-900);
+    background-image:radial-gradient(circle at 50% 0%, rgba(201,162,39,0.08), transparent 55%);
+    z-index:50;
+    display:none;
+    flex-direction:column;
+    overflow-y:auto;
+  }
+  #scenario-overlay.open{ display:flex; }
+  .scenario-header{
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(201,162,39,0.25);
+    position:sticky;
+    top:0;
+    background:var(--felt-900);
+    z-index:2;
+  }
+  .scenario-header-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .scenario-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--brass-500);
+  }
+  .scenario-exit{
+    background:none;
+    border:1px solid rgba(237,230,214,0.25);
+    color:var(--ivory-200);
+    border-radius:var(--radius);
+    padding:5px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .scenario-exit:hover{ border-color:var(--chip-red); color:var(--chip-red); }
+  .progress-track{
+    height:4px;
+    background:rgba(237,230,214,0.12);
+    border-radius:2px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--brass-500);
+    transition:width 0.3s ease;
+  }
+  .table-strip{
+    display:flex;
+    gap:6px;
+    margin-top:12px;
+    flex-wrap:wrap;
+  }
+  .seat-chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--ivory-200);
+    background:var(--felt-700);
+    border:1px solid rgba(237,230,214,0.15);
+    border-radius:var(--radius);
+    padding:3px 7px;
+  }
+  .seat-chip.dealer{
+    border-color:var(--brass-500);
+    color:var(--brass-300);
+  }
+  .seat-chip.button-seat{
+    border-color:var(--chip-blue);
+    color:#8FB4D4;
+  }
+
+  .scenario-body{
+    flex:1;
+    padding:26px 20px 40px;
+    max-width:640px;
+    margin:0 auto;
+    width:100%;
+  }
+  .landscape-split{
+    display:block;
+  }
+  /* Optional landscape layout for phones — kicks in only if the device is
+     physically rotated; portrait stays the default, nothing is forced. */
+  @media (orientation:landscape) and (max-height:500px){
+    .scenario-body{ max-width:900px; padding:16px 20px 24px; }
+    .landscape-split{
+      display:flex;
+      gap:24px;
+      align-items:flex-start;
+    }
+    .poker-table{
+      flex:0 0 360px;
+      height:230px;
+      margin-bottom:0;
+    }
+    .qa-column{
+      flex:1 1 auto;
+      min-width:0;
+    }
+    .scenario-prompt{ font-size:17px; margin-bottom:14px; }
+  }
+  .street-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--chip-blue);
+    margin-bottom:10px;
+  }
+  .scenario-prompt{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:21px;
+    line-height:1.35;
+    color:var(--ivory-100);
+    margin-bottom:22px;
+  }
+  .option-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .option-btn{
+    text-align:left;
+    background:var(--felt-800);
+    border:1px solid rgba(237,230,214,0.16);
+    color:var(--ivory-100);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    line-height:1.4;
+    cursor:pointer;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .option-btn:hover:not(:disabled){ border-color:var(--brass-500); }
+  .option-btn:disabled{ cursor:default; }
+  .option-btn.correct{
+    border-color:#4C8C5B;
+    background:rgba(76,140,91,0.18);
+  }
+  .option-btn.incorrect{
+    border-color:var(--chip-red);
+    background:rgba(166,48,58,0.16);
+  }
+
+  .feedback-box{
+    margin-top:18px;
+    padding:14px 16px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    line-height:1.55;
+    display:none;
+  }
+  .feedback-box.show{ display:block; }
+  .feedback-box.correct{
+    background:rgba(76,140,91,0.14);
+    border:1px solid rgba(76,140,91,0.4);
+    color:var(--ivory-100);
+  }
+  .feedback-box.incorrect{
+    background:rgba(166,48,58,0.12);
+    border:1px solid rgba(166,48,58,0.4);
+    color:var(--ivory-100);
+  }
+  .feedback-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    display:block;
+    margin-bottom:5px;
+  }
+  .feedback-box.correct .feedback-label{ color:#7FC28E; }
+  .feedback-box.incorrect .feedback-label{ color:#E38A90; }
+
+  .next-btn{
+    display:none;
+    margin-top:20px;
+    background:var(--brass-500);
+    color:var(--felt-900);
+    border:none;
+    border-radius:var(--radius);
+    padding:12px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .next-btn.show{ display:inline-block; }
+  .next-btn:hover{ background:var(--brass-300); }
+
+  /* ---- Summary screen ---- */
+  .summary-wrap{ text-align:center; padding-top:30px; }
+  .summary-score{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:56px;
+    color:var(--brass-300);
+    margin:14px 0 6px;
+  }
+  .summary-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+  }
+  .summary-msg{
+    font-size:14px;
+    color:var(--ivory-200);
+    margin:18px auto 26px;
+    max-width:420px;
+    line-height:1.55;
+  }
+  .summary-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .summary-btn{
+    background:var(--brass-500);
+    color:var(--felt-900);
+    border:none;
+    border-radius:var(--radius);
+    padding:12px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .summary-btn.ghost{
+    background:none;
+    border:1px solid rgba(237,230,214,0.25);
+    color:var(--ivory-200);
+  }
+
+  /* ---- Birds-eye poker table ---- */
+  .poker-table{
+    position:relative;
+    height:310px;
+    margin-bottom:24px;
+  }
+  .table-oval{
+    position:absolute;
+    inset:12px 20px;
+    border-radius:50%;
+    background:radial-gradient(ellipse at 50% 40%, #1C4A36, #0B2E22 82%);
+    border:3px solid var(--brass-500);
+    box-shadow:inset 0 0 26px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .board-row{
+    position:absolute;
+    left:50%;
+    display:flex;
+    gap:3px;
+    transform:translate(-50%,-50%);
+  }
+  .board-row.board1{ top:38%; }
+  .board-row.board2{ top:62%; }
+  .board-card{
+    width:20px;
+    height:29px;
+    background:var(--ivory-100);
+    border-radius:3px;
+    border:1px solid rgba(0,0,0,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:9px;
+    color:#1a1a1a;
+    box-shadow:0 1px 3px rgba(0,0,0,0.4);
+    animation:cardDeal 0.4s cubic-bezier(0.2,0.7,0.3,1);
+  }
+  .board-card.red{ color:var(--chip-red); }
+  /* Cards physically travel from the dealer's position out to their seat —
+     --deal-dx/--deal-dy are set per-card in JS from real measured pixel
+     positions, so this works correctly at any screen size. */
+  @keyframes cardDeal{
+    from{
+      transform: translate(var(--deal-dx, 0px), var(--deal-dy, 0px)) scale(0.55) rotate(var(--deal-rot, 0deg));
+      opacity: 0;
+    }
+    60%{ opacity: 1; }
+    to{
+      transform: translate(0, 0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+  /* fill-mode: backwards keeps a card invisible/at-the-dealer during its stagger
+     delay, instead of flashing visible at its seat then jumping back to animate. */
+  .board-card, .mini-card{ animation-fill-mode: backwards; }
+  .seat-pos{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    text-align:center;
+    width:88px;
+  }
+  .seat-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--ivory-200);
+    background:rgba(11,46,34,0.9);
+    border:1px solid rgba(237,230,214,0.2);
+    border-radius:var(--radius);
+    padding:2px 5px;
+    margin-bottom:3px;
+    display:inline-block;
+  }
+  .seat-pos.dealer-pos{
+    z-index:2;
+  }
+  .dealer-label{
+    border-color:var(--brass-500) !important;
+    color:var(--brass-300) !important;
+    background:rgba(11,46,34,0.97) !important;
+    font-size:10px !important;
+    padding:4px 9px !important;
+  }
+  .btn-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:13px;
+    height:13px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--ivory-100), var(--ivory-200) 60%, #b9ad8f 100%);
+    color:var(--felt-900);
+    font-size:8px;
+    font-weight:700;
+    box-shadow:0 0 0 1.5px var(--chip-blue);
+    margin-left:3px;
+  }
+  .seat-pos.has-button .seat-label{
+    border-color:var(--chip-blue);
+  }
+  .seat-cards{
+    display:flex;
+    justify-content:center;
+    gap:2px;
+    flex-wrap:wrap;
+    max-width:88px;
+  }
+  .mini-card{
+    width:15px;
+    height:21px;
+    background:var(--ivory-100);
+    border-radius:2px;
+    border:1px solid rgba(0,0,0,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:8px;
+    color:#1a1a1a;
+    box-shadow:0 1px 2px rgba(0,0,0,0.35);
+    animation:cardDeal 0.4s cubic-bezier(0.2,0.7,0.3,1);
+  }
+  .mini-card.red{ color:var(--chip-red); }
+  .mini-card.face-down{
+    background:repeating-linear-gradient(45deg, var(--brass-500) 0px, var(--brass-500) 2px, var(--felt-700) 2px, var(--felt-700) 4px);
+    border:1px solid rgba(201,162,39,0.6);
+  }
+  .seat-pos.sitting-out{ opacity:0.4; }
+  .seat-pos.sitting-out .seat-label{
+    border-color:rgba(237,230,214,0.15);
+    color:var(--slate-400);
+    font-style:italic;
+  }
+
+  /* ---- Progress badge ---- */
+  .stat-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--brass-300);
+    margin-top:7px;
+    letter-spacing:0.02em;
+  }
+  .review-btn{
+    margin-top:10px;
+    background:none;
+    border:1px solid var(--chip-red);
+    color:#E38A90;
+    border-radius:var(--radius);
+    padding:11px 18px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .review-btn:hover{ background:rgba(166,48,58,0.14); }
+  .review-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--chip-red);
+    margin-bottom:10px;
+  }
+
+  /* ================= RESPONSIVE SIZING =================
+     Base styles above are tuned for narrow phone portrait (~375-430px),
+     where bunching is the real risk. These breakpoints scale things up
+     on the roomier screens — iPad portrait/landscape and desktop —
+     without ever shrinking anything below the phone baseline. */
+
+  /* Tier 2: iPad portrait, phone landscape, small laptops (640px+).
+     min-height:501px excludes short phone-landscape screens (iPhone landscape
+     is ~375-430px tall), which already have their own compact layout above. */
+  @media (min-width: 640px) and (min-height: 501px){
+    .card-rack{ grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:14px; }
+    .card-title{ font-size:18px; }
+    .card-hint{ font-size:13px; }
+
+    .scenario-body{ max-width:760px; }
+    .scenario-prompt{ font-size:23px; }
+    .street-tag{ font-size:11.5px; }
+    .option-btn{ font-size:15px; padding:16px 18px; }
+    .feedback-box{ font-size:14.5px; padding:16px 18px; }
+
+    .poker-table{ height:360px; }
+    .mini-card{ width:19px; height:27px; font-size:9.5px; }
+    .board-card{ width:26px; height:38px; font-size:11px; }
+    .seat-pos{ width:104px; }
+    .seat-label{ font-size:10px; padding:3px 6px; }
+    .btn-badge{ width:15px; height:15px; font-size:9px; }
+  }
+
+  /* Tier 3: iPad landscape and desktop (1100px+) — take advantage of the extra room */
+  @media (min-width: 1000px) and (min-height: 501px){
+    .card-rack{ grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+    .card-title{ font-size:19.5px; }
+    .card-hint{ font-size:13.5px; }
+
+    .scenario-body{ max-width:1000px; }
+    .scenario-prompt{ font-size:26px; }
+    .street-tag{ font-size:12.5px; }
+    .option-btn{ font-size:16px; padding:18px 20px; }
+    .feedback-box{ font-size:15.5px; padding:18px 20px; }
+
+    .poker-table{ height:430px; }
+    .mini-card{ width:24px; height:34px; font-size:11px; }
+    .board-card{ width:34px; height:49px; font-size:13.5px; }
+    .seat-pos{ width:124px; }
+    .seat-label{ font-size:11px; padding:4px 8px; }
+    .btn-badge{ width:17px; height:17px; font-size:10px; }
+  }
+</style>
+</head>
+<body>
+
+<script src="cards-eval.js"></script>
+<script src="betting-engine.js"></script>
+<script src="ai-players.js"></script>
+
+<header>
+  <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
+  <div class="eyebrow">Dealer Reference &amp; Trainer</div>
+  <h1>The <em>Rail</em></h1>
+  <div class="subhead">Select a spread to review dealing procedure, betting order, and odd-chip rules — built from the floor, for the floor.</div>
+</header>
+
+<main>
+  <div id="categories"></div>
+
+  <div id="detail-wrap">
+    <div id="detail"></div>
+  </div>
+</main>
+
+<div id="engine-test-block" style="max-width:960px;margin:0 auto;padding:0 20px 40px;">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;border-bottom:1px solid rgba(237,230,214,0.12);padding-bottom:8px;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;background:#194B37;border:1px solid rgba(201,162,39,0.4);color:#E3C766;padding:3px 8px;border-radius:2px;">Engine Test</span>
+    <span style="font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:#EDE6D6;">Hand Engine Sandbox</span>
+    <span style="font-size:12.5px;color:#7C9686;margin-left:auto;">verify the new modules live</span>
+  </div>
+  <div style="background:linear-gradient(180deg,#123B2B,#194B37);border:1px solid rgba(237,230,214,0.14);border-radius:2px;padding:18px 16px;">
+    <p style="font-size:13px;color:#DCD3BE;line-height:1.55;margin:0 0 14px;">
+      This deals a random hand and runs it through the real hand-evaluation and AI decision engine — the same code that will eventually run the live tables. Nothing here is scripted or faked.
+    </p>
+    <button id="engineTestBtn" style="background:#C9A227;color:#0B2E22;border:none;border-radius:2px;padding:11px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;">Deal &amp; Evaluate a Random Hand</button>
+    <div id="engineTestOutput" style="margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#EDE6D6;line-height:1.8;white-space:pre-wrap;"></div>
+  </div>
+</div>
+
+<footer>THE RAIL — 21 GAMES · REAL 7-HANDED TABLES · HOLE CARDS HIDDEN LIKE THE REAL FLOOR</footer>
+
+<div id="scenario-overlay">
+  <div class="scenario-header">
+    <div class="scenario-header-top">
+      <div class="scenario-eyebrow" id="scenarioGameName">Scenario Mode</div>
+      <button class="scenario-exit" id="scenarioExit">EXIT</button>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="table-strip" id="tableStrip"></div>
+  </div>
+  <div class="scenario-body" id="scenarioBody"></div>
+</div>
+
+<script>
+/* ---------------- Scenario Generators ---------------- */
+function tripleDrawSteps({downCards, showdownPrompt, showdownOptions}){
+  return [
+    {
+      street:"Deal",
+      prompt:"New hand. Cards are shuffled. What do you do first?",
+      options:[
+        {text:`Deal ${downCards} down to each player, no burn`, correct:true, feedback:"Right — no burn before the very first deal of a fresh hand. Burns start before the first draw."},
+        {text:`Burn one card, then deal ${downCards} down`, correct:false, feedback:"No burn before the initial deal — that only starts with the first draw."},
+        {text:"Deal the first draw before the initial cards", correct:false, feedback:"Nothing to draw yet — the initial hand goes out first."}
+      ]
+    },
+    {
+      street:"Draw 1",
+      prompt:"First betting round wraps up. What's next?",
+      options:[
+        {text:"Burn, then deal Draw 1", correct:true, feedback:"Correct — always burn before a draw, even if nobody's drawing cards."},
+        {text:"Deal Draw 1, no burn needed", correct:false, feedback:"Golden Rule: always burn before dealing new cards, including every draw round."},
+        {text:"Skip straight to Draw 2", correct:false, feedback:"Each draw round gets its own betting round first — you can't skip ahead."}
+      ]
+    },
+    {
+      street:"Draw 2",
+      prompt:"Draw 1 betting wraps up. What's next?",
+      options:[
+        {text:"Burn, then deal Draw 2", correct:true, feedback:"Right — same rule, every draw round, no exceptions."},
+        {text:"Deal Draw 2 with no burn since you already burned once this hand", correct:false, feedback:"Every single draw gets its own burn — it doesn't matter how many times you've already burned this hand."},
+        {text:"Go to showdown", correct:false, feedback:"There's still a third draw round to go before showdown."}
+      ]
+    },
+    {
+      street:"Draw 3",
+      prompt:"Draw 2 betting wraps up. What's next?",
+      options:[
+        {text:"Burn, then deal Draw 3", correct:true, feedback:"Correct — the third and final draw, same burn rule applies."},
+        {text:"No more draws — go to showdown", correct:false, feedback:"This format runs three total draws before showdown."},
+        {text:"Deal Draw 3 with no burn", correct:false, feedback:"Still burn first, even on the last draw."}
+      ]
+    },
+    { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }
+  ];
+}
+
+function drawmahaCommonSteps(){
+  return [
+    {
+      street:"Deal",
+      prompt:"New hand. Cards are shuffled. What do you do first?",
+      options:[
+        {text:"Deal 5 hole cards to each player, no burn", correct:true, feedback:"Right — no burn before the very first deal. Burns start before the flop."},
+        {text:"Burn one card, then deal 5 hole cards", correct:false, feedback:"No burn before the initial deal — that's the very first cards out of a fresh shuffle."},
+        {text:"Deal the flop first, then hole cards", correct:false, feedback:"Hole cards always go out before any board cards."}
+      ]
+    },
+    {
+      street:"Pre-Flop",
+      prompt:"Betting on the hole cards just wrapped up. What's next?",
+      options:[
+        {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Correct. Golden rule — always burn before dealing new cards to the board."},
+        {text:"Deal the flop, no burn needed", correct:false, feedback:"The Golden Rule applies here: always burn before dealing to the board."},
+        {text:"Ask players to declare their draw now", correct:false, feedback:"Too early — the draw declaration comes after the flop is out and bet on."}
+      ]
+    },
+    {
+      street:"Flop",
+      prompt:"Flop's out, betting is done. Players are ready to draw. What's next?",
+      options:[
+        {text:"Have players declare their draw (up to 3 cards) — no cards dealt yet", correct:true, feedback:"Right — declaration comes first, before any dealing happens."},
+        {text:"Burn, then deal replacement cards immediately", correct:false, feedback:"Not yet — players need to declare how many cards they're drawing first."},
+        {text:"Burn, then deal the turn to the board", correct:false, feedback:"The turn and the draw replacements happen together, but the draw has to be declared first."}
+      ]
+    },
+    {
+      street:"Draw Declared",
+      prompt:"Draws are declared. Now you deal the turn AND get players their replacement cards. How many times do you burn?",
+      options:[
+        {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. One burn covers both the turn card and the players' replacement cards — Drawmaha's signature quirk."},
+        {text:"Burn once for the turn, burn again before replacements", correct:false, feedback:"Drawmaha only burns once here — the single burn covers both actions."},
+        {text:"No burn needed since players are just replacing cards", correct:false, feedback:"You do burn once — for the turn card. It just doesn't repeat for the replacements."}
+      ]
+    },
+    {
+      street:"Turn",
+      prompt:"Turn and replacements are out, betting's done. What's next?",
+      options:[
+        {text:"Burn, then deal the river", correct:true, feedback:"Correct — standard burn before the final board card."},
+        {text:"Deal the river with no burn", correct:false, feedback:"Golden Rule again — always burn before a new community card."},
+        {text:"Go straight to showdown", correct:false, feedback:"The river still needs to come out and get bet on first."}
+      ]
+    }
+  ];
+}
+function drawmahaScenario({showdownPrompt, showdownOptions}){
+  return [...drawmahaCommonSteps(), { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }];
+}
+
+function superStudSteps({showdownPrompt, showdownOptions}){
+  return [
+    {
+      street:"Deal",
+      prompt:"New hand. What's dealt to each player to start?",
+      options:[
+        {text:"4 cards down, 1 card up — no burn", correct:true, feedback:"Right — Super Stud deals 5 total, 4 down and 1 up. No burn before the initial deal."},
+        {text:"2 down, 1 up, like standard stud", correct:false, feedback:"That's the standard 7-Card Stud deal. Super Stud starts everyone with 5 cards: 4 down, 1 up."},
+        {text:"5 down, no up card yet", correct:false, feedback:"There's always one card up to start Super Stud — that's what makes bring-in possible."}
+      ]
+    },
+    {
+      street:"Discard/Pat",
+      prompt:"Before 4th street, what does every player have to do?",
+      options:[
+        {text:"Discard 2 of their down cards (getting to 3 total) — or declare Pat and keep all 5", correct:true, feedback:"Correct. Players trim down to a 3-card starting hand unless they lock in with a Pat."},
+        {text:"Everyone must discard — Pat isn't an option in Super Stud", correct:false, feedback:"Pat is very much an option — a player can keep all 5 original cards and lock in their hand instead of discarding."},
+        {text:"Discard happens after 4th street is dealt, not before", correct:false, feedback:"The discard-or-Pat decision happens before 4th street goes out, not after."}
+      ]
+    },
+    {
+      street:"Super Pat Action",
+      prompt:"One player declares Super Pat. For the rest of the hand, who acts first each street?",
+      options:[
+        {text:"The Super Pat player drives the action every round after", correct:true, feedback:"Exactly — Super Pat overrides the normal 'best hand showing acts first' rule. Once locked in, that player leads the betting every street."},
+        {text:"Whoever has the best hand showing, like normal stud rules", correct:false, feedback:"That's the standard rule, but Super Pat overrides it — the Pat player always acts first from here on."},
+        {text:"The player to the Pat player's left", correct:false, feedback:"Not quite — it's the Pat player themselves who drives the action, not the person next to them."}
+      ]
+    },
+    {
+      street:"Multiple Pats",
+      prompt:"A second player also declares Super Pat this hand. Who acts first now?",
+      options:[
+        {text:"The bring-in acts as the button", correct:true, feedback:"Right — with multiple Pats, the bring-in position effectively becomes the button for action order purposes."},
+        {text:"Whichever player declared Pat first", correct:false, feedback:"That rule only holds with a single Pat. Once there are multiple Pats, the bring-in takes over as the button."},
+        {text:"Both Pat players act simultaneously", correct:false, feedback:"Betting is always sequential — with multiple Pats, the bring-in becomes the button and normal seat order resumes from there."}
+      ]
+    },
+    {
+      street:"4th–7th Street",
+      prompt:"Streets 4 through 7 are dealt one at a time. What do you do before each one?",
+      options:[
+        {text:"Burn before every street, 4th through 7th, then bet each round", correct:true, feedback:"Correct — Golden Rule, every single street, no exceptions."},
+        {text:"Burn only before 4th street, not the rest", correct:false, feedback:"Every street needs its own burn, all the way through 7th street."},
+        {text:"No burns needed since players already discarded once", correct:false, feedback:"The discard has nothing to do with burn cards — you still burn before every new street."}
+      ]
+    },
+    { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }
+  ];
+}
+
+/* ---------------- Data ---------------- */
+function sevenStudSteps({bringInPrompt, bringInOptions, showdownPrompt, showdownOptions}){
+  return [
+    { street:"3rd Street", prompt:bringInPrompt, options:bringInOptions },
+    {
+      street:"4th Street",
+      prompt:"3rd street action wraps up. What's next?",
+      options:[
+        {text:"Burn, then deal 4th street", correct:true, feedback:"Correct — standard burn before every new street."},
+        {text:"Deal 4th street with no burn since 3rd street had no burn", correct:false, feedback:"3rd street's initial deal doesn't get a burn, but every street after it does."},
+        {text:"Ask for a pot-limit bet before dealing", correct:false, feedback:"Betting structure doesn't change the dealing procedure — burn then deal, regardless of limit type."}
+      ]
+    },
+    {
+      street:"Pairs",
+      prompt:"4th street lands and pairs a player's door card. What do you do?",
+      options:[
+        {text:"Announce it out loud — e.g. \"pair of fives are new, kings are high\"", correct:true, feedback:"Right — always call out new pairs as they hit, so the whole table knows the board."},
+        {text:"Say nothing, players can see it themselves", correct:false, feedback:"Dealers are expected to announce pairs proactively — don't rely on players to notice."},
+        {text:"Only mention it if a player asks", correct:false, feedback:"It should be called out automatically, not just on request."}
+      ]
+    },
+    {
+      street:"7th Street",
+      prompt:"You're dealing 7th street but the deck's short. What's the priority?",
+      options:[
+        {text:"Try to shuffle in burns and still give everyone a 7th card — if that's impossible, use a burn card as a shared community card so everyone still gets a 7th card", correct:true, feedback:"Exactly right — the priority is always making sure every player gets a 7th street card."},
+        {text:"Skip 7th street for whichever players run out of cards", correct:false, feedback:"The goal is to always find a way to give every player a 7th card — skipping players isn't the answer."},
+        {text:"Reshuffle the current round's discards to make more cards", correct:false, feedback:"Never reshuffle this round's player discards — only the muck, burns, and the last card off the deck are fair game for a reshuffle."}
+      ]
+    },
+    { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }
+  ];
+}
+
+const DATA = [
+  {
+    tag: "House Rules",
+    desc: "Core principles that apply across every format",
+    games: [
+      { name:"General Floor Rules", pot:"single", meta:"4 core rules · applies to every game", flow:[
+        "Always burn before dealing new cards to players or the board — no exceptions",
+        "Split pot odd chip defaults to the best 5-card hand, unless the game says otherwise",
+        "Reshuffle only the muck, burns, and the last card off the deck — never this round's discards",
+        "On 7th street, prioritize giving every player a card, even if it takes a burn-as-community-card"
+      ], notes:"These four rules apply underneath every single game on the sheet. Know these cold before anything else.",
+      scenario:[
+        {
+          street:"Golden Rule",
+          prompt:"You're dealing any format and there's a street where nobody's drawing and there's been no action at all. Do you still burn before the next card?",
+          options:[
+            {text:"Yes — always burn before dealing new cards, no exceptions, even with zero action", correct:true, feedback:"Correct. This is the Golden Rule and it has no exceptions — burn before every new street or draw, always."},
+            {text:"No — skip the burn if nothing happened that street", correct:false, feedback:"The burn still happens regardless of action. This rule exists specifically because it's tempting to skip it when nothing's going on."},
+            {text:"Only burn if a player asks for it", correct:false, feedback:"The burn isn't optional or player-triggered — it's automatic, every time, every street."}
+          ]
+        },
+        {
+          street:"Odd Chip",
+          prompt:"You're chopping a split pot and there's an odd chip left over with no game-specific rule stated. Who gets it by default?",
+          options:[
+            {text:"The best 5-card hand", correct:true, feedback:"Correct — that's the default. Specific games override this, like Archie (best high hand) or the Drawmaha family (best draw hand)."},
+            {text:"Always the high hand, no matter the game", correct:false, feedback:"Not the universal default — the baseline rule is the best 5-card hand, though some games do override toward the high hand specifically."},
+            {text:"Split it into smaller denomination chips", correct:false, feedback:"An odd chip by definition can't be split evenly — it has to go to one side."}
+          ]
+        },
+        {
+          street:"Reshuffling",
+          prompt:"You're short on cards mid-hand and need to reshuffle. What are you allowed to reshuffle back in?",
+          options:[
+            {text:"Only the muck, burn cards, and the last card off the deck — never this round's player discards", correct:true, feedback:"Correct. And the last card off the deck itself is never dealt or used as a burn once it's back in play."},
+            {text:"Any cards not currently in a player's hand, including this round's discards", correct:false, feedback:"This round's discards are off-limits — only the muck, burns, and the deck's last card can go back in."},
+            {text:"Just the burn cards, nothing else", correct:false, feedback:"The muck and the last card off the deck are fair game too, not just burns."}
+          ]
+        },
+        {
+          street:"7th Street",
+          prompt:"You're on 7th street in a stud-format game and the deck's short. What's the priority?",
+          options:[
+            {text:"Try to shuffle in burns and still give everyone a 7th card; if that's not possible, use a burn card as a shared community card so every player still gets one", correct:true, feedback:"Exactly right — the priority is always making sure every player gets their 7th street card, even if it takes a creative fix."},
+            {text:"Skip 7th street for whichever players run out of cards first", correct:false, feedback:"The goal is to find a way to give every player a 7th card, not to leave anyone short."},
+            {text:"End the hand early and chop the pot among remaining players", correct:false, feedback:"That's a last resort, not the first move — always try the burn-shuffling and community-card fixes first."}
+          ]
+        }
+      ]}
+    ]
+  },
+  {
+    tag: "Triple Draw",
+    desc: "Down cards only, no board",
+    games: [
+      { name:"Badugi", dealCat:"draw4", maxPlayers:7, pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
+        "Deal 4 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Best hand: 4 unpaired, unsuited, ace-low cards. Always burn before every draw, even with no action.",
+      scenario: tripleDrawSteps({
+        downCards:4,
+        showdownPrompt:"Final betting's done. What's the best possible Badugi hand?",
+        showdownOptions:[
+          {text:"4 unpaired, unsuited cards, ace playing low — e.g. A♠2♥3♣4♦", correct:true, feedback:"That's the nuts in Badugi — four different ranks, four different suits, ace low."},
+          {text:"5 unpaired, unsuited cards, ace playing low", correct:false, feedback:"Badugi is a 4-card game, not 5 — you're thinking of A-5 lowball."},
+          {text:"Any 4-card straight, suits don't matter", correct:false, feedback:"Straights don't matter in Badugi at all — it's about rank and suit uniqueness, not sequence."}
+        ]
+      })},
+      { name:"A-5 Lowball", dealCat:"draw5", maxPlayers:6, pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Straights and flushes don't count against you. UTG sits out if table is 7-handed.",
+      scenario: tripleDrawSteps({
+        downCards:5,
+        showdownPrompt:"Final betting's done. What's the best possible A-5 hand, and do straights/flushes matter?",
+        showdownOptions:[
+          {text:"A-2-3-4-5, any suits — straights and flushes don't count against you", correct:true, feedback:"Correct, the wheel plays regardless of suits, since flushes and straights aren't counted against the hand in A-5."},
+          {text:"A-2-3-4-5, but only if it's not all one suit", correct:false, feedback:"Suits don't matter in A-5 — flushes aren't counted against the hand."},
+          {text:"7-5-4-3-2 unsuited, since aces play high", correct:false, feedback:"That's the 2-7 nut low, not A-5. In A-5 the ace plays low and completes the wheel."}
+        ]
+      })},
+      { name:"2-7 Lowball", dealCat:"draw5", maxPlayers:6, pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"Ace plays high. Straights and flushes count against you — best hand is 7-5-4-3-2 unsuited.",
+      scenario: tripleDrawSteps({
+        downCards:5,
+        showdownPrompt:"Final betting's done. What's the best possible 2-7 hand?",
+        showdownOptions:[
+          {text:"7-5-4-3-2, unsuited — straights and flushes count against you, ace plays high", correct:true, feedback:"That's the 2-7 nut low. Since straights and flushes count against you, the ace has to play high to avoid completing a wheel-type straight."},
+          {text:"A-2-3-4-5, since ace plays low", correct:false, feedback:"That's the A-5 nut low. In 2-7, the ace plays high, which is exactly why the wheel isn't the target hand here."},
+          {text:"7-5-4-3-2, any suits including all one suit", correct:false, feedback:"Straights and flushes count against you in 2-7, so a flush would actually ruin this hand."}
+        ]
+      })},
+      { name:"Badacey", dealCat:"draw5", maxPlayers:6, pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"50% best Badugi (4-card) + 50% best A-5 low (5-card). Odd chip → best 5-card hand.",
+      scenario: tripleDrawSteps({
+        downCards:5,
+        showdownPrompt:"Final betting's done — this is a split pot game. What are you awarding it to?",
+        showdownOptions:[
+          {text:"50% best Badugi (4-card) + 50% best A-5 low (5-card), odd chip to the best 5-card hand", correct:true, feedback:"Right — Badacey splits between the two, and the odd chip breaks toward the 5-card A-5 side."},
+          {text:"50% best Badugi + 50% best 2-7 low", correct:false, feedback:"That combo is Baducey, not Badacey. Badacey pairs Badugi with A-5 low specifically."},
+          {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the A-5 low hand gets an equal share, it's not winner-take-all."}
+        ]
+      })},
+      { name:"Baducey", dealCat:"draw5", maxPlayers:6, pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"50% best Badugi (4-card) + 50% best 2-7 low (5-card). Odd chip → best 5-card hand.",
+      scenario: tripleDrawSteps({
+        downCards:5,
+        showdownPrompt:"Final betting's done — this is a split pot game. What are you awarding it to?",
+        showdownOptions:[
+          {text:"50% best Badugi (4-card) + 50% best 2-7 low (5-card), odd chip to the best 5-card hand", correct:true, feedback:"Right — Baducey splits between the two, and the odd chip breaks toward the 5-card 2-7 side."},
+          {text:"50% best Badugi + 50% best A-5 low", correct:false, feedback:"That combo is Badacey, not Baducey. Baducey pairs Badugi with 2-7 low specifically."},
+          {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the 2-7 low hand gets an equal share, it's not winner-take-all."}
+        ]
+      })},
+      { name:"Archie", dealCat:"draw5", maxPlayers:6, pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
+        "Deal 5 down to each player",
+        "Betting round",
+        "Burn, then Draw 1 — betting round",
+        "Burn, then Draw 2 — betting round",
+        "Burn, then Draw 3 — betting round",
+        "Showdown"
+      ], notes:"High (pair of 9s or better) / Low (8-or-better). No qualifiers either way → pot splits among remaining players. Odd chip → best high hand.",
+      scenario: tripleDrawSteps({
+        downCards:5,
+        showdownPrompt:"Final betting's done. Walk through the Archie payout.",
+        showdownOptions:[
+          {text:"50% to best High (pair of 9s or better) + 50% to best Low (8-or-better) — if nobody qualifies either way, the pot splits among remaining players; odd chip to the high hand", correct:true, feedback:"That's Archie. Remember — if nobody qualifies, it's not a scoop, the pot just splits among whoever's left in the hand."},
+          {text:"50% High + 50% Low, no qualifiers required at all", correct:false, feedback:"Archie has real qualifiers — pair of 9s or better for high, 8-or-better for low. Without meeting them, that side doesn't win outright."},
+          {text:"If nobody qualifies for low, the whole pot goes to the best high hand", correct:false, feedback:"Not in Archie — if neither side qualifies, the pot splits among the remaining players rather than getting scooped by one side."}
+        ]
+      })}
+    ]
+  },
+  {
+    tag: "7-Card Stud",
+    desc: "Individual up/down cards, 3rd–7th street",
+    games: [
+      { name:"Stud Hi-Lo / 8-or-Better", dealCat:"studSplit", maxPlayers:7, pot:"single/split", meta:"2 down, 1 up to start", flow:[
+        "3rd street: 2 down + 1 up — low card brings it in",
+        "Burn, deal 4th street — betting round",
+        "Burn, deal 5th street — betting round",
+        "Burn, deal 6th street — betting round",
+        "Burn, deal 7th street down — betting round",
+        "Showdown"
+      ], notes:"Low brings in, high drives the action. Announce pairs as they hit.",
+      scenario: sevenStudSteps({
+        bringInPrompt:"3rd street is out — 2 down, 1 up for everyone. Who brings it in?",
+        bringInOptions:[
+          {text:"The player showing the lowest card up", correct:true, feedback:"Correct — for Hi-Lo and 8-or-better, low brings it in and high drives the action from there."},
+          {text:"The player showing the highest card up", correct:false, feedback:"That's the Razz rule. In Hi-Lo/8b it's the opposite — lowest card up brings it in."},
+          {text:"Whoever posted the big blind", correct:false, feedback:"Stud doesn't use blinds — bring-in is determined by the door card, not a forced bet position."}
+        ],
+        showdownPrompt:"Final betting's done. What determines the winner in Stud 8-or-better?",
+        showdownOptions:[
+          {text:"Split pot — 50% best Hi hand + 50% best 8-or-better Lo hand (if no low qualifies, Hi scoops)", correct:true, feedback:"Right — and remember, if nobody has an 8-or-better low, the high hand takes the whole pot."},
+          {text:"Always split 50/50, no qualifier needed for the low side", correct:false, feedback:"The 8-or-better qualifier matters — without it, there's no low hand to split with, and Hi scoops."},
+          {text:"Winner take all to the best high hand, no low side at all", correct:false, feedback:"This is a hi-lo split format — there's a genuine low side in play whenever a qualifying hand shows up."}
+        ]
+      })},
+      { name:"Razz", dealCat:"studSplit", maxPlayers:7, pot:"single", meta:"2 down, 1 up to start", flow:[
+        "3rd street: 2 down + 1 up — high card brings it in",
+        "Burn, deal 4th street — betting round",
+        "Burn, deal 5th street — betting round",
+        "Burn, deal 6th street — betting round",
+        "Burn, deal 7th street down — betting round",
+        "Showdown"
+      ], notes:"High brings in, low drives the action — the opposite of Hi-Lo bring-in. Announce pairs as they hit.",
+      scenario: sevenStudSteps({
+        bringInPrompt:"3rd street is out — 2 down, 1 up for everyone. In Razz, who brings it in?",
+        bringInOptions:[
+          {text:"The player showing the highest card up", correct:true, feedback:"Right — in Razz, the worst-looking hand (highest card showing) is forced to bring it in and act first."},
+          {text:"The player showing the lowest card up", correct:false, feedback:"That's the bring-in rule for Stud Hi-Lo and 8-or-better, not Razz. In Razz it flips — highest card up brings it in."},
+          {text:"The player to the left of the dealer button, like a flop game", correct:false, feedback:"Stud games don't use a button for action order — it's determined by the cards showing, not seating position."}
+        ],
+        showdownPrompt:"Final betting's done. In Razz, what's the best possible hand?",
+        showdownOptions:[
+          {text:"A-2-3-4-5, the wheel, ace playing low", correct:true, feedback:"Correct — that's the nut low in Razz, same target hand as A-5 lowball."},
+          {text:"7-5-4-3-2 unsuited", correct:false, feedback:"That's the 2-7 nut low. Razz plays like A-5 — ace low, and straights/flushes don't count against you."},
+          {text:"Any pair or better, high hand wins", correct:false, feedback:"Razz is a low-only game — the lowest 5-card hand wins, not the highest."}
+        ]
+      })},
+      { name:"Super Stud / Super Pat", dealCat:"superStud", maxPlayers:7, pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street — or declare Pat",
+        "Burn, deal 4th street — betting round",
+        "Burn, deal 5th street — betting round",
+        "Burn, deal 6th street — betting round",
+        "Burn, deal 7th street — betting round",
+        "Showdown"
+      ], notes:"Super Pat locks in the 5-card hand and drives betting every round after. Multiple Pats → bring-in acts as the button. Variants: Studugi, 8-or-better, Any-Any (Any-Any's full rules aren't documented yet — confirm with your floor supervisor before dealing it).",
+      scenario: superStudSteps({
+        showdownPrompt:"Final betting's done. This base game is typically played as a single winner — what determines it?",
+        showdownOptions:[
+          {text:"Best standard 5-card hand for whatever variant is being played — high hand by default, or Studugi/8-or-better/Any-Any if that's the spread called", correct:true, feedback:"Right — Super Stud/Super Pat plays as whatever variant is on the board, high hand by default."},
+          {text:"Always a split pot between high and low", correct:false, feedback:"Not by default — base Super Stud/Super Pat is single-winner unless a split variant like Super Hi-Lo Stud is specifically being played."},
+          {text:"Whoever declared Pat automatically wins", correct:false, feedback:"Pat locks in a hand, it doesn't guarantee a win — best hand at showdown still takes it."}
+        ]
+      })},
+      { name:"Super Hi-Lo Stud", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, King♠ is highest. Looking for best Hi + best 8-or-better Lo. Odd chip → Hi hand.",
+      scenario: superStudSteps({
+        showdownPrompt:"Final betting's done — split pot time. What's the payout?",
+        showdownOptions:[
+          {text:"50% best Hi hand + 50% best 8-or-better Lo hand, odd chip to the Hi hand", correct:true, feedback:"Right — and note the odd chip breaks toward Hi here, which is the exception to the usual best-5-card-hand default."},
+          {text:"50% Hi + 50% Lo, odd chip to the Lo hand", correct:false, feedback:"Close, but the odd chip in Super Hi-Lo Stud goes to the Hi hand specifically, not the Lo hand."},
+          {text:"Winner take all to best Hi hand, no qualifier needed for Lo", correct:false, feedback:"This is a split-pot game with an 8-or-better qualifier for the low side — it's not winner-take-all."}
+        ]
+      })},
+      { name:"Super Baducey", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, low hand drives action. 50% Badugi + 50% best 2-7 low. Odd chip → low/best 5-card hand.",
+      scenario: superStudSteps({
+        showdownPrompt:"Final betting's done. What are you paying out?",
+        showdownOptions:[
+          {text:"50% best Badugi + 50% best 2-7 low, odd chip to the low/best 5-card hand", correct:true, feedback:"Correct — same low-hand-gets-the-odd-chip rule as the triple draw version of this split."},
+          {text:"50% best Badugi + 50% best A-5 low", correct:false, feedback:"That combo is Super Badacey. Super Baducey pairs Badugi with 2-7 low specifically."},
+          {text:"Winner take all to the best 5-card hand", correct:false, feedback:"This is a split pot — Badugi and 2-7 low each take half, not winner-take-all."}
+        ]
+      })},
+      { name:"Super Badacey", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
+        "Deal 4 down + 1 up",
+        "Discard 2 down before 4th street",
+        "Burn, deal 4th–7th street — betting each round",
+        "Showdown"
+      ], notes:"High brings in, low hand drives action. 50% Badugi + 50% best A-5 low. Odd chip → low/best 5-card hand.",
+      scenario: superStudSteps({
+        showdownPrompt:"Final betting's done. What are you paying out?",
+        showdownOptions:[
+          {text:"50% best Badugi + 50% best A-5 low, odd chip to the low/best 5-card hand", correct:true, feedback:"Correct — same low-hand-gets-the-odd-chip rule as the triple draw version of this split."},
+          {text:"50% best Badugi + 50% best 2-7 low", correct:false, feedback:"That combo is Super Baducey. Super Badacey pairs Badugi with A-5 low specifically."},
+          {text:"Winner take all to the best 5-card hand", correct:false, feedback:"This is a split pot — Badugi and A-5 low each take half, not winner-take-all."}
+        ]
+      })}
+    ]
+  },
+  {
+    tag: "Omaha & Flop",
+    desc: "Hole cards + shared community board",
+    games: [
+      { name:"Drawmaha Hi", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Deal 5 hole cards — betting round",
+        "Burn, deal flop (3) — betting round",
+        "Players declare draw (up to 3 cards)",
+        "Burn, deal turn — deal replacements (no burn) — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"50% best Omaha Hi (2 hand + 3 board) + 50% best 5-card draw Hi. Odd chip → best draw hand.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New hand. Cards are shuffled. What do you do first?",
+          options:[
+            {text:"Deal 5 hole cards to each player, no burn", correct:true, feedback:"Right — there's no burn before the very first deal of a hand. Burns start before the next street."},
+            {text:"Burn one card, then deal 5 hole cards", correct:false, feedback:"No burn before the initial deal — that's the very first cards out of a fresh shuffle. You'll start burning before the flop."},
+            {text:"Deal the flop first, then hole cards", correct:false, feedback:"Hole cards always go out before any board cards. The flop hasn't happened yet."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Betting on the hole cards just wrapped up. What's next?",
+          options:[
+            {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Correct. Golden rule — always burn before dealing new cards to the board, every time."},
+            {text:"Deal the flop, no burn needed", correct:false, feedback:"The Golden Rule applies here: you always burn before dealing to the board, even though it feels routine."},
+            {text:"Ask players to declare their draw now", correct:false, feedback:"Too early — the draw declaration comes after the flop is out and bet on, not before."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"Flop's out, betting is done. Players are ready to draw. What's next?",
+          options:[
+            {text:"Have players declare their draw (up to 3 cards) — no cards dealt yet", correct:true, feedback:"Right — declaration comes first. No burn or deal happens for a declaration, just players stating how many cards they want."},
+            {text:"Burn, then deal replacement cards immediately", correct:false, feedback:"Not yet — players need to declare how many cards they're drawing before anything gets dealt."},
+            {text:"Burn, then deal the turn to the board", correct:false, feedback:"The turn and the draw replacements happen together in this game, but the draw has to be declared first."}
+          ]
+        },
+        {
+          street:"Draw Declared",
+          prompt:"Draws are declared. Now you deal the turn AND get players their replacement cards. How many times do you burn?",
+          options:[
+            {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. This is Drawmaha's signature quirk: one burn covers both the turn card and the players' replacement cards."},
+            {text:"Burn once for the turn, burn again before replacements", correct:false, feedback:"That's the instinct from other games, but Drawmaha only burns once here — the single burn covers both the turn and the replacement deal."},
+            {text:"No burn needed since players are just replacing cards", correct:false, feedback:"You do burn once — for the turn card going to the board. It just doesn't repeat for the replacement cards."}
+          ]
+        },
+        {
+          street:"Turn",
+          prompt:"Turn and replacements are out, betting's done. What's next?",
+          options:[
+            {text:"Burn, then deal the river", correct:true, feedback:"Correct — standard burn before the final board card."},
+            {text:"Deal the river with no burn", correct:false, feedback:"Golden Rule again — always burn before a new community card, including the river."},
+            {text:"Go straight to showdown", correct:false, feedback:"Not yet — the river still needs to come out and get bet on first."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"River's out, final betting's done. The pot splits. What two hands are you awarding it to?",
+          options:[
+            {text:"50% best Omaha Hi (2 hole + 3 board) + 50% best 5-card draw hand (all 5 hole cards)", correct:true, feedback:"That's the split. And if there's an odd chip, it goes to the best draw hand, not the Omaha side."},
+            {text:"50% best Omaha Hi + 50% best Omaha Lo", correct:false, feedback:"There's no Omaha Lo side in this game — that's a different split-pot format. Drawmaha Hi pairs Omaha Hi with a straight 5-card draw hand."},
+            {text:"Whole pot to the best overall 5-card hand", correct:false, feedback:"This is a split-pot game — half goes to the board-based Omaha hand, half to the draw hand made entirely from hole cards."}
+          ]
+        }
+      ]},
+      { name:"Drawmaha A-5", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
+      ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand.",
+      scenario: drawmahaScenario({
+        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        showdownOptions:[
+          {text:"50% best Omaha Hi (board) + 50% best A-5 low using hole cards only, odd chip to the low hand", correct:true, feedback:"Right — the low side is scored from hole cards only, like a straight A-5 lowball hand."},
+          {text:"50% Omaha Hi + 50% best 2-7 low", correct:false, feedback:"That's Drawmaha 2-7. This variant pairs Omaha Hi with A-5 low specifically."},
+          {text:"Odd chip goes to the Omaha Hi side", correct:false, feedback:"In every Drawmaha variant, the odd chip goes to the draw/low hand side, not the Omaha Hi side."}
+        ]
+      })},
+      { name:"Drawmaha 2-7", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as 2-7 low (ace high)"
+      ], notes:"50% Omaha Hi + 50% best 2-7 low in hole cards. Odd chip → best draw hand.",
+      scenario: drawmahaScenario({
+        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        showdownOptions:[
+          {text:"50% Omaha Hi + 50% best 2-7 low (ace plays high) using hole cards only, odd chip to the low hand", correct:true, feedback:"Correct — and remember ace plays high here since it's 2-7, unlike the A-5 variant."},
+          {text:"50% Omaha Hi + 50% best A-5 low", correct:false, feedback:"That's Drawmaha A-5. This variant uses 2-7 low scoring specifically, where the ace plays high."},
+          {text:"Straights and flushes don't count against the low hand", correct:false, feedback:"In 2-7 scoring, straights and flushes DO count against you — that's exactly what makes it 2-7 instead of A-5."}
+        ]
+      })},
+      { name:"Drawmaha 49", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored by point count"
+      ], notes:"50% Omaha Hi + 50% highest point count (Aces=1, faces=0, number cards=value, max 49). Odd chip → best draw hand.",
+      scenario: drawmahaScenario({
+        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        showdownOptions:[
+          {text:"50% Omaha Hi + 50% highest point count from hole cards (aces=1, faces=0, number cards=value, max 49), odd chip to the point-count hand", correct:true, feedback:"Right — it's a point count contest on the draw side, not a traditional poker hand."},
+          {text:"50% Omaha Hi + 50% lowest point count", correct:false, feedback:"It's highest point count that wins the draw side in Drawmaha 49, not lowest."},
+          {text:"Face cards count as 10 points each", correct:false, feedback:"Face cards count as 0 in this format — aces count as 1, and number cards count at face value."}
+        ]
+      })},
+      { name:"Drawmaha Badugi", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board", flow:[
+        "Same flow as Drawmaha Hi — draw hand scored as Badugi"
+      ], notes:"50% Omaha Hi + 50% best Badugi in hole cards. Odd chip → best draw hand.",
+      scenario: drawmahaScenario({
+        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        showdownOptions:[
+          {text:"50% Omaha Hi + 50% best Badugi (4 unpaired, unsuited cards) from the hole cards, odd chip to the Badugi hand", correct:true, feedback:"Correct — even though players get 5 hole cards, the Badugi side only counts the best 4-card Badugi within those 5."},
+          {text:"50% Omaha Hi + 50% best 5-card low hand", correct:false, feedback:"The draw side here is scored as Badugi specifically — best 4 unpaired, unsuited cards, not a straight 5-card low."},
+          {text:"All 5 hole cards must be used for the Badugi hand", correct:false, feedback:"Badugi is always best-4-of-however-many-available — you use the best 4 out of the 5 hole cards, not all 5."}
+        ]
+      })},
+      { name:"Double Board Omaha", dealCat:"doubleBoard", maxPlayers:7, pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
+        "Deal hole cards — betting round",
+        "Burn, deal flop on both boards — betting round",
+        "Burn, deal turn on both boards — betting round",
+        "Burn, deal river on both boards — betting round",
+        "Showdown"
+      ], notes:"50% best Omaha Hi Board 1 + 50% best Omaha Hi Board 2. PLO or fixed-limit.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New hand. What's dealt to start, and how many boards are in play?",
+          options:[
+            {text:"4 or 5 hole cards to each player, no burn — two separate community boards will run", correct:true, feedback:"Right — standard Omaha hole cards, but two boards run simultaneously instead of one."},
+            {text:"4 or 5 hole cards, and burn before the initial deal", correct:false, feedback:"No burn before the very first deal, same as any other format."},
+            {text:"2 hole cards like Hold'em, since there are two boards", correct:false, feedback:"The two-board part refers to the community cards — players still get Omaha-style 4 or 5 hole cards."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"Preflop betting wraps up. You're dealing the flop to both boards. How many times do you burn?",
+          options:[
+            {text:"Burn once, then deal 3 cards to each of the two boards", correct:true, feedback:"Correct — one burn covers the flop deal even though it's going out to two boards at once."},
+            {text:"Burn once per board — two burns total", correct:false, feedback:"It's one burn per street, regardless of how many boards you're dealing to."},
+            {text:"No burn needed since you're not dealing to players", correct:false, feedback:"The Golden Rule covers the board too — always burn before new community cards."}
+          ]
+        },
+        {
+          street:"Turn",
+          prompt:"Flop betting's done. What's next?",
+          options:[
+            {text:"Burn once, deal the turn to both boards", correct:true, feedback:"Same pattern — one burn, both boards get their turn card."},
+            {text:"Burn twice, once per board", correct:false, feedback:"Still just one burn per street, even with two boards live."},
+            {text:"Deal the turn with no burn", correct:false, feedback:"Always burn before a new street, boards or no boards."}
+          ]
+        },
+        {
+          street:"River",
+          prompt:"Turn betting's done. What's next?",
+          options:[
+            {text:"Burn once, deal the river to both boards", correct:true, feedback:"Right — same single-burn pattern through the river."},
+            {text:"Skip the burn since it's the last street", correct:false, feedback:"The river still gets a burn, same as every other street."},
+            {text:"Go straight to showdown", correct:false, feedback:"The river still needs to be dealt and bet on before showdown."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"Final betting's done. What's the payout?",
+          options:[
+            {text:"50% best Omaha Hi hand using Board 1 + 50% best Omaha Hi hand using Board 2", correct:true, feedback:"Correct — each board is scored independently, and the pot splits between them."},
+            {text:"Best combined hand using cards from both boards at once", correct:false, feedback:"Boards are scored separately — a player builds one hand vs Board 1 and a separate hand vs Board 2."},
+            {text:"Whichever board has the better hand wins the entire pot", correct:false, feedback:"This is a 50/50 split by board, not winner-take-all."}
+          ]
+        }
+      ]},
+      { name:"Pineapple", dealCat:"pineapple", maxPlayers:7, pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+        "Deal 3 hole cards",
+        "Discard 1 down to 2 — before any flop betting",
+        "Burn, deal flop — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"Texas Hold'em high hand. Discard happens before the flop is even bet on.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New hand. Everyone gets 3 hole cards. What's next?",
+          options:[
+            {text:"Immediately have players discard down to 2 cards — before any betting happens at all", correct:true, feedback:"Right — in regular Pineapple, the discard happens before even the first betting round."},
+            {text:"Preflop betting happens first with all 3 cards, then discard", correct:false, feedback:"That's Crazy Pineapple's order. Regular Pineapple discards immediately, before any betting."},
+            {text:"Burn, then deal the flop with players still holding 3 cards", correct:false, feedback:"The discard down to 2 has to happen before the flop, and before any betting."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Players are down to 2 cards. What's next?",
+          options:[
+            {text:"Standard preflop betting round, then burn and deal the flop", correct:true, feedback:"Correct — from here it plays out exactly like standard Hold'em."},
+            {text:"Deal the flop immediately, no betting round", correct:false, feedback:"There's still a full preflop betting round before the flop comes out."},
+            {text:"Have players discard again", correct:false, feedback:"The discard only happens once, right at the start — from here it's standard Hold'em streets."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"Flop betting wraps up. What's next?",
+          options:[
+            {text:"Burn, then deal the turn", correct:true, feedback:"Right — standard burn-and-deal from here."},
+            {text:"Deal the turn with no burn", correct:false, feedback:"Golden Rule — always burn before a new street."},
+            {text:"Go to showdown", correct:false, feedback:"Turn and river still need to come out."}
+          ]
+        },
+        {
+          street:"Turn/River",
+          prompt:"Turn betting's done. What's next, and what hand wins at showdown?",
+          options:[
+            {text:"Burn, deal the river, bet, then showdown — best standard Hold'em high hand wins", correct:true, feedback:"Correct — Pineapple plays out as a single-pot Hold'em high hand from here, using the 2 cards each player kept."},
+            {text:"Deal the river with no burn since it's the last card", correct:false, feedback:"The river still gets burned before it's dealt, same as every other street."},
+            {text:"Split the pot between the discarded card and the final hand", correct:false, feedback:"Discarded cards are dead — showdown is a single winner-take-all Hold'em high hand with the 2 cards kept."}
+          ]
+        }
+      ]},
+      { name:"Crazy Pineapple", dealCat:"crazyPineapple", maxPlayers:7, pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+        "Deal 3 hole cards",
+        "Burn, deal flop — betting round",
+        "Discard 1 down to 2 — after flop betting",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"Same as Pineapple, but the discard happens AFTER the flop betting round — key procedural difference.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New hand. Everyone gets 3 hole cards. What's next?",
+          options:[
+            {text:"Standard preflop betting round with all 3 cards still in hand — discard comes later", correct:true, feedback:"Right — this is the key difference from regular Pineapple. Crazy Pineapple keeps all 3 cards through preflop betting."},
+            {text:"Immediately discard down to 2 cards before any betting", correct:false, feedback:"That's regular Pineapple's rule. In Crazy Pineapple, players hold all 3 cards through the preflop betting round."},
+            {text:"Burn and deal the flop immediately", correct:false, feedback:"There's a full preflop betting round with 3 cards before the flop even comes out."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Preflop betting wraps up (players still have 3 cards each). What's next?",
+          options:[
+            {text:"Burn, then deal the flop — betting round follows", correct:true, feedback:"Correct — the flop comes out before the discard happens."},
+            {text:"Discard down to 2 cards now, before the flop", correct:false, feedback:"Not yet — the discard in Crazy Pineapple happens after the flop betting round, not before the flop is even dealt."},
+            {text:"Skip the flop betting round", correct:false, feedback:"Flop betting happens as normal, with players still holding 3 cards."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"Flop betting just wrapped up. Players are still holding 3 cards each. What do you do now?",
+          options:[
+            {text:"NOW have players discard down to 2 cards", correct:true, feedback:"Exactly right — this is the defining Crazy Pineapple quirk: the discard happens after the flop betting round, not before."},
+            {text:"Deal the turn — the discard already happened", correct:false, feedback:"It hasn't happened yet in Crazy Pineapple — this is the moment the discard occurs, right after flop betting."},
+            {text:"Ask players to discard 2 cards, keeping only 1", correct:false, feedback:"Players discard down to 2 cards, keeping 2, not 1."}
+          ]
+        },
+        {
+          street:"Turn/River",
+          prompt:"Discard's done, players hold 2 cards. What's next, and what hand wins at showdown?",
+          options:[
+            {text:"Burn+turn, bet, burn+river, bet, showdown — best standard Hold'em high hand wins", correct:true, feedback:"Correct — from here it's identical to regular Pineapple and standard Hold'em, single pot, high hand wins."},
+            {text:"Players get a second discard before the river", correct:false, feedback:"Only one discard happens all hand, right after the flop betting round."},
+            {text:"Deal turn and river together with one burn", correct:false, feedback:"Each street still gets its own separate burn — turn and river are dealt one at a time."}
+          ]
+        }
+      ]}
+    ]
+  },
+  {
+    tag: "Texas Hold'em",
+    desc: "Straight community-board game",
+    games: [
+      { name:"Texas Hold'em", dealCat:"holdem", maxPlayers:7, pot:"single", meta:"2 hole cards · Hold'em board", flow:[
+        "Deal 2 hole cards to each player",
+        "Betting round (preflop)",
+        "Burn, deal flop (3) — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown"
+      ], notes:"The baseline format the Pineapple variants are built from — good reference point before dealing the mixed spreads.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New hand. What's dealt to start?",
+          options:[
+            {text:"2 hole cards to each player, no burn", correct:true, feedback:"Correct — standard Hold'em deal, no burn before the very first cards."},
+            {text:"2 hole cards, with a burn first", correct:false, feedback:"No burn before the initial deal in any format — burns start before the flop."},
+            {text:"3 hole cards, like Pineapple", correct:false, feedback:"Straight Hold'em is always 2 hole cards — the 3-card versions are the Pineapple variants."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Preflop betting wraps up. What's next?",
+          options:[
+            {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Right — Golden Rule, burn before every new street."},
+            {text:"Deal the flop with no burn", correct:false, feedback:"Always burn before dealing to the board."},
+            {text:"Deal the turn and flop together", correct:false, feedback:"Flop, turn, and river are always separate streets with their own betting rounds."}
+          ]
+        },
+        {
+          street:"Flop/Turn",
+          prompt:"Flop betting's done. What's next?",
+          options:[
+            {text:"Burn, deal the turn, bet — then burn, deal the river, bet", correct:true, feedback:"Correct — standard burn-and-deal pattern for both remaining streets."},
+            {text:"Deal the turn and river with a single burn", correct:false, feedback:"Each street gets its own burn — turn and river are not combined."},
+            {text:"Skip straight to showdown after the flop", correct:false, feedback:"Turn and river still need to be dealt and bet on."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"River betting's done. What determines the winner?",
+          options:[
+            {text:"Best standard 5-card high hand using any combination of hole cards and board", correct:true, feedback:"Correct — straightforward single-pot, best 5-card high hand wins."},
+            {text:"Best hand using only the 2 hole cards", correct:false, feedback:"Hold'em hands are built from any combination of the 2 hole cards and 5 board cards — not hole cards alone."},
+            {text:"It's always a split pot between high and low", correct:false, feedback:"Standard Hold'em is single-pot, high hand only — no low side unless it's a specific hi-lo variant."}
+          ]
+        }
+      ]}
+    ]
+  }
+];
+
+const potClass = { split:"split", qual:"qual" };
+const catsEl = document.getElementById('categories');
+const detailEl = document.getElementById('detail');
+let activeCard = null;
+
+DATA.forEach(cat => {
+  const block = document.createElement('div');
+  block.className = 'category-block';
+
+  const head = document.createElement('div');
+  head.className = 'category-head';
+  head.innerHTML = `
+    <span class="category-tag">${cat.tag}</span>
+    <span class="category-name">${cat.tag}</span>
+    <span class="category-desc">${cat.desc}</span>
+  `;
+  block.appendChild(head);
+
+  const rack = document.createElement('div');
+  rack.className = 'card-rack';
+
+  cat.games.forEach(game => {
+    const card = document.createElement('button');
+    card.className = 'game-card';
+    card.innerHTML = `
+      <span class="dealer-button">D</span>
+      <div class="card-pot ${potClass[game.pot] || ''}">${game.pot}</div>
+      <div class="card-title">${game.name}</div>
+      <div class="card-hint">${game.meta}</div>
+    `;
+    card.addEventListener('click', () => selectGame(card, game, cat.tag));
+    rack.appendChild(card);
+  });
+
+  block.appendChild(rack);
+  catsEl.appendChild(block);
+});
+
+/* ---------------- Local Progress Tracking ---------------- */
+function getStats(){
+  try{ return JSON.parse(localStorage.getItem('railStats') || '{}'); }
+  catch(e){ return {}; }
+}
+function saveStats(stats){
+  try{ localStorage.setItem('railStats', JSON.stringify(stats)); }
+  catch(e){ /* storage unavailable — fail silently, progress just won't persist */ }
+}
+function recordAttempt(gameName, score, total){
+  const stats = getStats();
+  const prev = stats[gameName] || { best:0, attempts:0 };
+  stats[gameName] = {
+    best: Math.max(prev.best, score),
+    attempts: prev.attempts + 1,
+    lastScore: score,
+    total: total,
+    lastPlayed: Date.now()
+  };
+  saveStats(stats);
+}
+
+function selectGame(card, game, catTag){
+  if(activeCard) activeCard.classList.remove('active');
+  card.classList.add('active');
+  activeCard = card;
+
+  const stats = getStats()[game.name];
+  const badgeHtml = stats
+    ? `<div class="stat-badge">Best: ${stats.best}/${stats.total} · Practiced ${stats.attempts}x</div>`
+    : '';
+
+  detailEl.innerHTML = `
+    <div class="detail-top">
+      <div>
+        <div class="detail-title">${game.name}</div>
+        <div class="detail-meta">${catTag} · ${game.meta}</div>
+      </div>
+      <button class="close-btn" id="closeDetail">CLOSE</button>
+    </div>
+    <div class="detail-section-label">Dealing Flow</div>
+    <ol class="flow-steps">
+      ${game.flow.map(step => `<li>${step}</li>`).join('')}
+    </ol>
+    <div class="detail-section-label">Notes</div>
+    <div class="detail-notes">${game.notes}</div>
+    ${game.scenario ? `<button class="practice-btn" id="practiceBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
+      Practice This Hand
+    </button>${badgeHtml}` : `<div class="placeholder-tag">Scenario mode — coming soon for this game</div>`}
+  `;
+  detailEl.classList.add('open');
+  document.getElementById('closeDetail').addEventListener('click', () => {
+    detailEl.classList.remove('open');
+    card.classList.remove('active');
+    activeCard = null;
+  });
+  if(game.scenario){
+    document.getElementById('practiceBtn').addEventListener('click', () => startScenario(game, catTag));
+  }
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+/* ---------------- Card Deck & Deal Patterns ---------------- */
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const SUITS = [['\u2660','black'],['\u2665','red'],['\u2666','red'],['\u2663','black']];
+function freshDeck(){
+  const d = [];
+  RANKS.forEach(r => SUITS.forEach(([s,c]) => d.push({r, s, c})));
+  for(let i = d.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+function cardHtml(c, mini, delayMs, dx, dy){
+  const cls = mini ? 'mini-card' : 'board-card';
+  const rot = ((dx || 0) > 0 ? 1 : -1) * (6 + Math.random() * 8); // slight rotation, direction matches travel side, for a natural flick
+  const styleParts = [];
+  if(delayMs) styleParts.push(`animation-delay:${delayMs}ms`);
+  if(dx !== undefined) styleParts.push(`--deal-dx:${dx}px`);
+  if(dy !== undefined) styleParts.push(`--deal-dy:${dy}px`);
+  if(dx !== undefined || dy !== undefined) styleParts.push(`--deal-rot:${rot.toFixed(1)}deg`);
+  const styleAttr = styleParts.length ? ` style="${styleParts.join(';')}"` : '';
+  return `<span class="${cls}${c.c === 'red' ? ' red' : ''}"${styleAttr}>${c.r}${c.s}</span>`;
+}
+
+// Cumulative hole/board card counts visible while each scenario step is on screen.
+const DEAL_PATTERNS = {
+  // upCount = how many of the current hole cards are face-up (visible to the dealer/viewer).
+  // Draw and flop-board games: hole cards are NEVER visible to the dealer — upCount is always 0.
+  // Stud games: door card + 4th-6th street are up, 7th street is dealt down, matching real stud procedure.
+  draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
+  draw5:          { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
+  studSplit:      { hole:[3,3,4,6,7],       upCount:[1,1,2,4,4],       board:[0,0,0,0,0] },
+  superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0] },
+  drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5] },
+  doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5] },
+  pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4] },
+  crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3] },
+  holdem:         { hole:[0,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,5] }
+};
+
+
+const overlay = document.getElementById('scenario-overlay');
+const scenarioBody = document.getElementById('scenarioBody');
+const progressFill = document.getElementById('progressFill');
+const tableStrip = document.getElementById('tableStrip');
+const scenarioGameName = document.getElementById('scenarioGameName');
+let currentScenario = null;
+let stepIndex = 0;
+let correctCount = 0;
+let missedSteps = [];
+let reviewMode = false;
+let reviewQueue = [];
+let reviewPos = 0;
+let activeStepIndex = 0;
+let tableSeats = 7; // always a full 7-handed table
+let buttonSeatIndex = null;
+let sitOutSeatIndex = null;
+let seatHoleCards = [];
+let tableBoardCards = [];
+let tableBoard2Cards = [];
+
+// Games where a dealer button rotates player-to-player each hand.
+// 7-card stud formats have no button — bring-in determines action instead.
+const BUTTON_DEALCATS = new Set(['draw4','draw5','drawmaha','doubleBoard','pineapple','crazyPineapple','holdem']);
+
+function buildTable(game, isRedeal){
+  const numPlayers = tableSeats; // always 7 seats at the table
+  const usesButton = !!(game && BUTTON_DEALCATS.has(game.dealCat));
+  const maxPlayers = (game && game.maxPlayers) || 7;
+
+  if(usesButton){
+    if(isRedeal && buttonSeatIndex !== null){
+      buttonSeatIndex = (buttonSeatIndex + 1) % numPlayers; // button moves one seat every hand
+    } else {
+      buttonSeatIndex = Math.floor(Math.random() * numPlayers);
+    }
+  } else {
+    buttonSeatIndex = null; // stud formats: no button at all
+  }
+
+  // With 7 seats but a game capped below 7, the seat "under the gun" sits out —
+  // that's the seat left of the Big Blind: Button -> SB (+1) -> BB (+2) -> UTG (+3).
+  // Matches the house rule printed on the actual cheat sheet.
+  if(usesButton && maxPlayers < numPlayers){
+    sitOutSeatIndex = (buttonSeatIndex + 3) % numPlayers;
+  } else {
+    sitOutSeatIndex = null;
+  }
+
+  tableStrip.innerHTML = '';
+  const dealerChip = document.createElement('span');
+  dealerChip.className = 'seat-chip dealer';
+  dealerChip.textContent = '\u25CF YOU (DEALER)';
+  tableStrip.appendChild(dealerChip);
+  for(let i = 0; i < numPlayers; i++){
+    const chip = document.createElement('span');
+    const onButton = usesButton && i === buttonSeatIndex;
+    const sittingOut = sitOutSeatIndex === i;
+    chip.className = 'seat-chip' + (onButton ? ' button-seat' : '');
+    chip.textContent = 'Seat ' + (i+1) + (onButton ? ' \u25CF BTN' : '') + (sittingOut ? ' (sitting out)' : '');
+    tableStrip.appendChild(chip);
+  }
+
+  const pattern = game && game.dealCat ? DEAL_PATTERNS[game.dealCat] : null;
+  seatHoleCards = [];
+  tableBoardCards = [];
+  tableBoard2Cards = [];
+  if(pattern){
+    const deck = freshDeck();
+    const holeMax = Math.max(...pattern.hole);
+    for(let i = 0; i < numPlayers; i++){
+      if(i === sitOutSeatIndex){
+        seatHoleCards.push([]); // no cards dealt to the seat sitting out this hand
+      } else {
+        seatHoleCards.push(deck.splice(0, holeMax));
+      }
+    }
+    const boardMax = Math.max(...pattern.board);
+    tableBoardCards = deck.splice(0, boardMax);
+    if(pattern.board2){
+      const board2Max = Math.max(...pattern.board2);
+      tableBoard2Cards = deck.splice(0, board2Max);
+    }
+  }
+  return numPlayers;
+}
+
+// Player seats sweep clockwise starting just left of the dealer's fixed
+// bottom position, all the way around to just right of the dealer —
+// matching the real vantage point of a dealer standing at the table.
+function seatAngle(i, n){
+  const startAngle = 116;  // just clockwise of bottom (90deg) = dealer's left
+  const span = 308;        // leaves a gap at the bottom for the dealer's own spot
+  return n <= 1 ? 90 : startAngle + i * (span / (n - 1));
+}
+
+/* ---------------- Sound Effects ----------------
+   Synthesized tones only — no audio files needed. AudioContext is created
+   lazily and resumed on first use, satisfying Safari's user-gesture rule
+   since every call here happens inside a click handler. */
+let soundMuted = localStorage.getItem('railSoundMuted') === 'true';
+let audioCtx = null;
+function getAudioCtx(){
+  if(soundMuted) return null;
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, duration, type, volume){
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  try{
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume || 0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch(e){ /* audio unavailable — fail silently, never block the UI */ }
+}
+function playDealSound(){ playTone(190, 0.05, 'square', 0.035); }
+function playCorrectSound(){ playTone(660, 0.12, 'sine', 0.06); setTimeout(() => playTone(880, 0.15, 'sine', 0.06), 80); }
+function playIncorrectSound(){ playTone(180, 0.22, 'sawtooth', 0.045); }
+
+const soundToggleBtn = document.getElementById('soundToggle');
+function updateSoundToggleLabel(){
+  soundToggleBtn.textContent = soundMuted ? '\uD83D\uDD07 SOUND OFF' : '\uD83D\uDD0A SOUND ON';
+}
+updateSoundToggleLabel();
+soundToggleBtn.addEventListener('click', () => {
+  soundMuted = !soundMuted;
+  localStorage.setItem('railSoundMuted', soundMuted);
+  updateSoundToggleLabel();
+});
+
+function renderTableView(stepIndex){
+  const pokerTable = document.getElementById('pokerTable');
+  if(!pokerTable) return;
+  const pattern = currentScenario && currentScenario.dealCat ? DEAL_PATTERNS[currentScenario.dealCat] : null;
+  if(!pattern){
+    pokerTable.style.display = 'none';
+    return;
+  }
+  pokerTable.style.display = 'block';
+  playDealSound();
+
+  const seatsEl = document.getElementById('seatsEl');
+  const board1El = document.getElementById('boardRow1');
+  const board2El = document.getElementById('boardRow2');
+
+  const clampedIndex = Math.min(stepIndex, pattern.hole.length - 1);
+  const holeCount = pattern.hole[clampedIndex];
+  const upCount = (pattern.upCount && pattern.upCount[clampedIndex]) || 0;
+  const boardCount = pattern.board[clampedIndex];
+  const DEAL_STAGGER_MS = 100; // slow enough to read as one-at-a-time, not a blur
+
+  // Measure the ACTUAL rendered table so travel distances are correct at any
+  // screen size (phone, iPad, desktop all use different card/table dimensions).
+  const tableW = pokerTable.clientWidth;
+  const tableH = pokerTable.clientHeight;
+  const dealerPxX = tableW * 0.50;
+  const dealerPxY = tableH * 0.92;
+
+  // Pre-compute each active seat's cards + its real pixel position before
+  // laying anything out, so we can assign delays in true round-robin deal order:
+  // one card to every seat, then the next card to every seat, same as a real deal.
+  const perSeatCards = [];
+  const perSeatOffset = []; // {dx, dy} — how far each seat's cards travel from the dealer
+  for(let i = 0; i < tableSeats; i++){
+    perSeatCards.push(sitOutSeatIndex === i ? [] : (seatHoleCards[i] || []).slice(0, holeCount));
+    const angle = seatAngle(i, tableSeats);
+    const rad = angle * Math.PI / 180;
+    const seatXPct = 50 + 37 * Math.cos(rad);
+    const seatYPct = 50 + 40 * Math.sin(rad);
+    perSeatOffset.push({
+      dx: dealerPxX - (tableW * seatXPct / 100),
+      dy: dealerPxY - (tableH * seatYPct / 100)
+    });
+  }
+  const perSeatDelay = perSeatCards.map(() => []);
+  let dealCounter = 0;
+  for(let round = 0; round < holeCount; round++){
+    for(let i = 0; i < tableSeats; i++){
+      if(perSeatCards[i][round] !== undefined){
+        perSeatDelay[i][round] = dealCounter * DEAL_STAGGER_MS;
+        dealCounter++;
+      }
+    }
+  }
+  const boardDelayStart = dealCounter * DEAL_STAGGER_MS;
+
+  seatsEl.innerHTML = '';
+
+  // Fixed dealer (operator) position — bottom of the table, no cards.
+  const dealerDiv = document.createElement('div');
+  dealerDiv.className = 'seat-pos dealer-pos';
+  dealerDiv.style.left = '50%';
+  dealerDiv.style.top = '92%';
+  dealerDiv.innerHTML = `<div class="seat-label dealer-label">\u25CF YOU \u00b7 DEALER</div>`;
+  seatsEl.appendChild(dealerDiv);
+
+  for(let i = 0; i < tableSeats; i++){
+    const angle = seatAngle(i, tableSeats);
+    const rad = angle * Math.PI / 180;
+    const x = 50 + 37 * Math.cos(rad);
+    const y = 50 + 40 * Math.sin(rad);
+    const onButton = buttonSeatIndex !== null && i === buttonSeatIndex;
+    const sittingOut = sitOutSeatIndex === i;
+    const seatDiv = document.createElement('div');
+    seatDiv.className = 'seat-pos' + (onButton ? ' has-button' : '') + (sittingOut ? ' sitting-out' : '');
+    seatDiv.style.left = x + '%';
+    seatDiv.style.top = y + '%';
+
+    let cardsHtml = '';
+    if(!sittingOut){
+      const seatCards = perSeatCards[i];
+      const { dx, dy } = perSeatOffset[i];
+      const visibleUp = Math.min(upCount, seatCards.length);
+      const upCards = seatCards.slice(0, visibleUp).map((c, idx) => cardHtml(c, true, perSeatDelay[i][idx], dx, dy));
+      const downCards = seatCards.slice(visibleUp).map((c, idx) => {
+        const delay = perSeatDelay[i][visibleUp + idx];
+        return `<span class="mini-card face-down" style="animation-delay:${delay}ms; --deal-dx:${dx}px; --deal-dy:${dy}px;"></span>`;
+      });
+      cardsHtml = upCards.concat(downCards).join('');
+    }
+    const label = sittingOut
+      ? `Seat ${i+1} <span style="font-size:8px;">(sitting out)</span>`
+      : `Seat ${i+1}${onButton ? ' <span class="btn-badge">D</span>' : ''}`;
+    seatDiv.innerHTML = `<div class="seat-label">${label}</div><div class="seat-cards">${cardsHtml}</div>`;
+    seatsEl.appendChild(seatDiv);
+  }
+
+  const board1Dx = dealerPxX - (tableW * 0.50);
+  const board1Dy = dealerPxY - (tableH * 0.38);
+  const boardCards1 = tableBoardCards.slice(0, boardCount);
+  board1El.innerHTML = boardCards1.map((c, idx) =>
+    cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board1Dx, board1Dy)).join('');
+  if(pattern.board2){
+    const board2Dx = dealerPxX - (tableW * 0.50);
+    const board2Dy = dealerPxY - (tableH * 0.62);
+    const board2Count = pattern.board2[clampedIndex];
+    const boardCards2 = tableBoard2Cards.slice(0, board2Count);
+    board2El.innerHTML = boardCards2.map((c, idx) =>
+      cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board2Dx, board2Dy)).join('');
+    board2El.style.display = 'flex';
+  } else {
+    board2El.innerHTML = '';
+    board2El.style.display = 'none';
+  }
+}
+
+function startScenario(game, catTag){
+  currentScenario = game;
+  stepIndex = 0;
+  correctCount = 0;
+  missedSteps = [];
+  reviewMode = false;
+  scenarioGameName.textContent = catTag + ' \u00b7 ' + game.name;
+  tableSeats = 7; // always a full 7-handed table
+  buttonSeatIndex = null;
+  buildTable(game, false);
+  detailEl.classList.remove('open');
+  if(activeCard){ activeCard.classList.remove('active'); activeCard = null; }
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderStep();
+}
+
+
+function renderStep(){
+  const steps = currentScenario.scenario;
+
+  if(reviewMode){
+    if(reviewPos >= reviewQueue.length){
+      reviewMode = false;
+      renderSummary(false);
+      return;
+    }
+    const actualIndex = reviewQueue[reviewPos];
+    progressFill.style.width = ((reviewPos) / reviewQueue.length * 100) + '%';
+    renderStepContent(steps[actualIndex], actualIndex, reviewPos === reviewQueue.length - 1);
+    return;
+  }
+
+  progressFill.style.width = ((stepIndex) / steps.length * 100) + '%';
+  if(stepIndex >= steps.length){
+    renderSummary(true);
+    return;
+  }
+  renderStepContent(steps[stepIndex], stepIndex, stepIndex === steps.length - 1);
+}
+
+function renderStepContent(step, tableIndex, isLastOfRun){
+  // shuffle option order each render
+  const opts = step.options.map((o, i) => ({...o, origIndex:i}))
+    .sort(() => Math.random() - 0.5);
+
+  scenarioBody.innerHTML = `
+    ${reviewMode ? '<div class="review-tag">Reviewing a missed street</div>' : ''}
+    <div class="landscape-split">
+      <div class="poker-table" id="pokerTable">
+        <div class="table-oval"></div>
+        <div class="board-row board1" id="boardRow1"></div>
+        <div class="board-row board2" id="boardRow2"></div>
+        <div id="seatsEl"></div>
+      </div>
+      <div class="qa-column">
+        <div class="street-tag">Street: ${step.street}</div>
+        <div class="scenario-prompt">${step.prompt}</div>
+        <div class="option-list" id="optionList"></div>
+        <div class="feedback-box" id="feedbackBox">
+          <span class="feedback-label" id="feedbackLabel"></span>
+          <span id="feedbackText"></span>
+        </div>
+        <button class="next-btn" id="nextBtn">${isLastOfRun ? (reviewMode ? 'Back to Results' : 'See Results') : 'Next Street'}</button>
+      </div>
+    </div>
+  `;
+  renderTableView(tableIndex);
+  activeStepIndex = tableIndex;
+
+  const optionList = document.getElementById('optionList');
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = opt.text;
+    btn.addEventListener('click', () => handleAnswer(opt, optionList));
+    optionList.appendChild(btn);
+  });
+
+  scenarioBody.scrollTop = 0;
+}
+
+function handleAnswer(opt, optionList){
+  const buttons = optionList.querySelectorAll('.option-btn');
+  buttons.forEach(b => b.disabled = true);
+
+  buttons.forEach(b => {
+    if(b.textContent === opt.text){
+      b.classList.add(opt.correct ? 'correct' : 'incorrect');
+    }
+  });
+  if(!opt.correct){
+    const correctOpt = currentScenario.scenario[activeStepIndex].options.find(o => o.correct);
+    buttons.forEach(b => {
+      if(b.textContent === correctOpt.text) b.classList.add('correct');
+    });
+    if(!reviewMode) missedSteps.push(activeStepIndex);
+    playIncorrectSound();
+  } else {
+    if(!reviewMode) correctCount++;
+    playCorrectSound();
+  }
+
+  const feedbackBox = document.getElementById('feedbackBox');
+  const feedbackLabel = document.getElementById('feedbackLabel');
+  const feedbackText = document.getElementById('feedbackText');
+  feedbackBox.className = 'feedback-box show ' + (opt.correct ? 'correct' : 'incorrect');
+  feedbackLabel.textContent = opt.correct ? 'Correct' : 'Not quite';
+  feedbackText.textContent = opt.feedback;
+
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.classList.add('show');
+  nextBtn.onclick = () => {
+    if(reviewMode){ reviewPos++; } else { stepIndex++; }
+    renderStep();
+  };
+}
+
+function renderSummary(shouldRecord){
+  progressFill.style.width = '100%';
+  const steps = currentScenario.scenario;
+  const pct = Math.round((correctCount / steps.length) * 100);
+  let msg;
+  if(pct === 100) msg = "Clean hand, start to finish. That's exactly how it should run on the floor.";
+  else if(pct >= 70) msg = "Solid work. Review the streets you missed and this one'll be automatic.";
+  else msg = "That's why we practice. Run it back and lock in the sequence.";
+
+  scenarioBody.innerHTML = `
+    <div class="landscape-split">
+      <div class="poker-table" id="pokerTable">
+        <div class="table-oval"></div>
+        <div class="board-row board1" id="boardRow1"></div>
+        <div class="board-row board2" id="boardRow2"></div>
+        <div id="seatsEl"></div>
+      </div>
+      <div class="qa-column">
+        <div class="summary-wrap">
+          <div class="summary-label">Hand Complete</div>
+          <div class="summary-score">${correctCount}/${steps.length}</div>
+          <div class="summary-label">Correct</div>
+          <div class="summary-msg">${msg}</div>
+          <div class="summary-actions">
+            <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
+            <button class="summary-btn ghost" id="exitToShellBtn">Back to Games</button>
+          </div>
+          ${missedSteps.length > 0 ? `<button class="review-btn" id="reviewMissesBtn">Review ${missedSteps.length} Missed Street${missedSteps.length > 1 ? 's' : ''}</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  renderTableView(steps.length - 1);
+  if(shouldRecord) recordAttempt(currentScenario.name, correctCount, steps.length);
+
+  document.getElementById('dealAgainBtn').addEventListener('click', () => {
+    stepIndex = 0;
+    correctCount = 0;
+    missedSteps = [];
+    reviewMode = false;
+    buildTable(currentScenario, true);
+    renderStep();
+  });
+  document.getElementById('exitToShellBtn').addEventListener('click', closeScenario);
+  const reviewBtn = document.getElementById('reviewMissesBtn');
+  if(reviewBtn){
+    reviewBtn.addEventListener('click', () => {
+      reviewQueue = [...missedSteps];
+      reviewPos = 0;
+      reviewMode = true;
+      renderStep();
+    });
+  }
+}
+
+function closeScenario(){
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('scenarioExit').addEventListener('click', closeScenario);
+
+/* ---------------- Engine Test Sandbox ---------------- */
+function cardLabel(c){ const suitChar = {S:'\u2660',H:'\u2665',D:'\u2666',C:'\u2663'}[c.suit]; return c.rank + suitChar; }
+function handLabel(cards){ return cards.map(cardLabel).join(' '); }
+
+document.getElementById('engineTestBtn').addEventListener('click', () => {
+  const out = document.getElementById('engineTestOutput');
+  const lines = [];
+
+  const deck = window.RailCards.freshDeck();
+  const hand5 = deck.splice(0, 5);
+
+  // Standard high (as used by Hold'em / Omaha / Stud)
+  const highScore = window.RailCards.evaluate5High(hand5);
+  const highTier = window.RailAI.classifyHigh(highScore);
+  const highTierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][highTier];
+  const highAction = window.RailAI.decideAction({ tier: highTier, facingBet: true, facingRaise: false, canCheck: false });
+  lines.push('STANDARD HIGH  (Hold\u2019em / Omaha / Stud)');
+  lines.push('  Hand: ' + handLabel(hand5));
+  lines.push('  Category score: [' + highScore.join(', ') + ']');
+  lines.push('  AI reads this as: ' + highTierName + '  ->  facing a bet, AI would: ' + highAction.toUpperCase());
+  lines.push('');
+
+  // A-5 low (Badugi's cousin / Big O's low side)
+  const a5Score = window.RailCards.bestLowA5FromN(hand5).score;
+  const a5Tier = window.RailAI.classifyA5Low(a5Score);
+  const a5TierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][a5Tier];
+  const qualifies = window.RailCards.qualifiesEightLow(a5Score);
+  lines.push('A-5 LOW  (same 5 cards)');
+  lines.push('  Best low reading: [' + a5Score.join(', ') + ']  |  8-or-better qualifier: ' + (qualifies ? 'YES' : 'no'));
+  lines.push('  AI reads this as: ' + a5TierName);
+  lines.push('');
+
+  // 2-7 low (same 5 cards, different lens)
+  const low27 = window.RailCards.bestLow27FromN(hand5);
+  const low27Tier = window.RailAI.classify27Low(low27.score);
+  const low27TierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][low27Tier];
+  lines.push('2-7 LOW  (same 5 cards)');
+  lines.push('  AI reads this as: ' + low27TierName);
+  lines.push('');
+
+  // Badugi on a fresh 4-card deal
+  const hand4 = deck.splice(0, 4);
+  const badugi = window.RailCards.bestBadugi(hand4);
+  const badugiTier = window.RailAI.classifyBadugi(badugi);
+  const badugiTierName = ['WEAK','MARGINAL','STRONG','PREMIUM'][badugiTier];
+  lines.push('BADUGI  (fresh 4-card hand)');
+  lines.push('  Hand: ' + handLabel(hand4));
+  lines.push('  Best badugi found: ' + handLabel(badugi.cards) + '  (' + badugi.size + '-card)');
+  lines.push('  AI reads this as: ' + badugiTierName);
+  lines.push('');
+
+  // Pot-limit math sanity check
+  const maxRaise = window.RailBetting.potLimitMaxRaise(120, 20);
+  lines.push('POT-LIMIT CHECK: pot $120, facing a $20 call -> max raise $' + maxRaise + ' (should always be $140)');
+
+  out.textContent = lines.join('\n');
+});
+</script>
+
+</body>
+</html>
