@@ -723,6 +723,16 @@
     animation:cardPop 0.25s ease;
   }
   .mini-card.red{ color:var(--chip-red); }
+  .mini-card.face-down{
+    background:repeating-linear-gradient(45deg, var(--brass-500) 0px, var(--brass-500) 2px, var(--felt-700) 2px, var(--felt-700) 4px);
+    border:1px solid rgba(201,162,39,0.6);
+  }
+  .seat-pos.sitting-out{ opacity:0.4; }
+  .seat-pos.sitting-out .seat-label{
+    border-color:rgba(237,230,214,0.15);
+    color:var(--slate-400);
+    font-style:italic;
+  }
 
   /* ---- Progress badge ---- */
   .stat-badge{
@@ -1044,7 +1054,7 @@ const DATA = [
     tag: "Triple Draw",
     desc: "Down cards only, no board",
     games: [
-      { name:"Badugi", dealCat:"draw4", pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
+      { name:"Badugi", dealCat:"draw4", maxPlayers:7, pot:"single", meta:"4 cards · 3 draws · max 7", flow:[
         "Deal 4 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1061,7 +1071,7 @@ const DATA = [
           {text:"Any 4-card straight, suits don't matter", correct:false, feedback:"Straights don't matter in Badugi at all — it's about rank and suit uniqueness, not sequence."}
         ]
       })},
-      { name:"A-5 Lowball", dealCat:"draw5", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"A-5 Lowball", dealCat:"draw5", maxPlayers:6, pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1078,7 +1088,7 @@ const DATA = [
           {text:"7-5-4-3-2 unsuited, since aces play high", correct:false, feedback:"That's the 2-7 nut low, not A-5. In A-5 the ace plays low and completes the wheel."}
         ]
       })},
-      { name:"2-7 Lowball", dealCat:"draw5", pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"2-7 Lowball", dealCat:"draw5", maxPlayers:6, pot:"single", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1095,7 +1105,7 @@ const DATA = [
           {text:"7-5-4-3-2, any suits including all one suit", correct:false, feedback:"Straights and flushes count against you in 2-7, so a flush would actually ruin this hand."}
         ]
       })},
-      { name:"Badacey", dealCat:"draw5", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"Badacey", dealCat:"draw5", maxPlayers:6, pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1112,7 +1122,7 @@ const DATA = [
           {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the A-5 low hand gets an equal share, it's not winner-take-all."}
         ]
       })},
-      { name:"Baducey", dealCat:"draw5", pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
+      { name:"Baducey", dealCat:"draw5", maxPlayers:6, pot:"split", meta:"5 cards · 3 draws · max 6", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1129,7 +1139,7 @@ const DATA = [
           {text:"Whole pot to whoever has the best Badugi", correct:false, feedback:"This is a split-pot game — the 2-7 low hand gets an equal share, it's not winner-take-all."}
         ]
       })},
-      { name:"Archie", dealCat:"draw5", pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
+      { name:"Archie", dealCat:"draw5", maxPlayers:6, pot:"qual", meta:"5 cards · 3 draws · max 6 · qualifier", flow:[
         "Deal 5 down to each player",
         "Betting round",
         "Burn, then Draw 1 — betting round",
@@ -1152,7 +1162,7 @@ const DATA = [
     tag: "7-Card Stud",
     desc: "Individual up/down cards, 3rd–7th street",
     games: [
-      { name:"Stud Hi-Lo / 8-or-Better", dealCat:"studSplit", pot:"single/split", meta:"2 down, 1 up to start", flow:[
+      { name:"Stud Hi-Lo / 8-or-Better", dealCat:"studSplit", maxPlayers:7, pot:"single/split", meta:"2 down, 1 up to start", flow:[
         "3rd street: 2 down + 1 up — low card brings it in",
         "Burn, deal 4th street — betting round",
         "Burn, deal 5th street — betting round",
@@ -1174,7 +1184,7 @@ const DATA = [
           {text:"Winner take all to the best high hand, no low side at all", correct:false, feedback:"This is a hi-lo split format — there's a genuine low side in play whenever a qualifying hand shows up."}
         ]
       })},
-      { name:"Razz", dealCat:"studSplit", pot:"single", meta:"2 down, 1 up to start", flow:[
+      { name:"Razz", dealCat:"studSplit", maxPlayers:7, pot:"single", meta:"2 down, 1 up to start", flow:[
         "3rd street: 2 down + 1 up — high card brings it in",
         "Burn, deal 4th street — betting round",
         "Burn, deal 5th street — betting round",
@@ -1196,7 +1206,7 @@ const DATA = [
           {text:"Any pair or better, high hand wins", correct:false, feedback:"Razz is a low-only game — the lowest 5-card hand wins, not the highest."}
         ]
       })},
-      { name:"Super Stud / Super Pat", dealCat:"superStud", pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Stud / Super Pat", dealCat:"superStud", maxPlayers:7, pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street — or declare Pat",
         "Burn, deal 4th street — betting round",
@@ -1213,7 +1223,7 @@ const DATA = [
           {text:"Whoever declared Pat automatically wins", correct:false, feedback:"Pat locks in a hand, it doesn't guarantee a win — best hand at showdown still takes it."}
         ]
       })},
-      { name:"Super Hi-Lo Stud", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Hi-Lo Stud", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1227,7 +1237,7 @@ const DATA = [
           {text:"Winner take all to best Hi hand, no qualifier needed for Lo", correct:false, feedback:"This is a split-pot game with an 8-or-better qualifier for the low side — it's not winner-take-all."}
         ]
       })},
-      { name:"Super Baducey", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Baducey", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1241,7 +1251,7 @@ const DATA = [
           {text:"Winner take all to the best 5-card hand", correct:false, feedback:"This is a split pot — Badugi and 2-7 low each take half, not winner-take-all."}
         ]
       })},
-      { name:"Super Badacey", dealCat:"superStud", pot:"split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Badacey", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street",
         "Burn, deal 4th–7th street — betting each round",
@@ -1261,7 +1271,7 @@ const DATA = [
     tag: "Omaha & Flop",
     desc: "Hole cards + shared community board",
     games: [
-      { name:"Drawmaha Hi", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha Hi", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Deal 5 hole cards — betting round",
         "Burn, deal flop (3) — betting round",
         "Players declare draw (up to 3 cards)",
@@ -1325,7 +1335,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Drawmaha A-5", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha A-5", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
       ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1336,7 +1346,7 @@ const DATA = [
           {text:"Odd chip goes to the Omaha Hi side", correct:false, feedback:"In every Drawmaha variant, the odd chip goes to the draw/low hand side, not the Omaha Hi side."}
         ]
       })},
-      { name:"Drawmaha 2-7", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
+      { name:"Drawmaha 2-7", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as 2-7 low (ace high)"
       ], notes:"50% Omaha Hi + 50% best 2-7 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1347,7 +1357,7 @@ const DATA = [
           {text:"Straights and flushes don't count against the low hand", correct:false, feedback:"In 2-7 scoring, straights and flushes DO count against you — that's exactly what makes it 2-7 instead of A-5."}
         ]
       })},
-      { name:"Drawmaha 49", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+      { name:"Drawmaha 49", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board", flow:[
         "Same flow as Drawmaha Hi — draw hand scored by point count"
       ], notes:"50% Omaha Hi + 50% highest point count (Aces=1, faces=0, number cards=value, max 49). Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1358,7 +1368,7 @@ const DATA = [
           {text:"Face cards count as 10 points each", correct:false, feedback:"Face cards count as 0 in this format — aces count as 1, and number cards count at face value."}
         ]
       })},
-      { name:"Drawmaha Badugi", dealCat:"drawmaha", pot:"split", meta:"5 hole cards · Omaha board", flow:[
+      { name:"Drawmaha Badugi", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board", flow:[
         "Same flow as Drawmaha Hi — draw hand scored as Badugi"
       ], notes:"50% Omaha Hi + 50% best Badugi in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
@@ -1369,7 +1379,7 @@ const DATA = [
           {text:"All 5 hole cards must be used for the Badugi hand", correct:false, feedback:"Badugi is always best-4-of-however-many-available — you use the best 4 out of the 5 hole cards, not all 5."}
         ]
       })},
-      { name:"Double Board Omaha", dealCat:"doubleBoard", pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
+      { name:"Double Board Omaha", dealCat:"doubleBoard", maxPlayers:7, pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
         "Deal hole cards — betting round",
         "Burn, deal flop on both boards — betting round",
         "Burn, deal turn on both boards — betting round",
@@ -1423,7 +1433,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Pineapple", dealCat:"pineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+      { name:"Pineapple", dealCat:"pineapple", maxPlayers:7, pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
         "Deal 3 hole cards",
         "Discard 1 down to 2 — before any flop betting",
         "Burn, deal flop — betting round",
@@ -1469,7 +1479,7 @@ const DATA = [
           ]
         }
       ]},
-      { name:"Crazy Pineapple", dealCat:"crazyPineapple", pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
+      { name:"Crazy Pineapple", dealCat:"crazyPineapple", maxPlayers:7, pot:"single", meta:"3 hole cards · Hold'em board · max 7", flow:[
         "Deal 3 hole cards",
         "Burn, deal flop — betting round",
         "Discard 1 down to 2 — after flop betting",
@@ -1521,7 +1531,7 @@ const DATA = [
     tag: "Texas Hold'em",
     desc: "Straight community-board game",
     games: [
-      { name:"Texas Hold'em", dealCat:"holdem", pot:"single", meta:"2 hole cards · Hold'em board", flow:[
+      { name:"Texas Hold'em", dealCat:"holdem", maxPlayers:7, pot:"single", meta:"2 hole cards · Hold'em board", flow:[
         "Deal 2 hole cards to each player",
         "Betting round (preflop)",
         "Burn, deal flop (3) — betting round",
@@ -1691,15 +1701,18 @@ function cardHtml(c, mini){
 
 // Cumulative hole/board card counts visible while each scenario step is on screen.
 const DEAL_PATTERNS = {
-  draw4:          { hole:[0,4,4,4,4], board:[0,0,0,0,0] },
-  draw5:          { hole:[0,5,5,5,5], board:[0,0,0,0,0] },
-  studSplit:      { hole:[3,3,4,6,7], board:[0,0,0,0,0] },
-  superStud:      { hole:[0,5,3,3,3,7], board:[0,0,0,0,0,0] },
-  drawmaha:       { hole:[0,5,5,5,5,5], board:[0,0,3,3,4,5] },
-  doubleBoard:    { hole:[0,5,5,5,5], board:[0,0,3,4,5], board2:[0,0,3,4,5] },
-  pineapple:      { hole:[3,2,2,2], board:[0,0,3,4] },
-  crazyPineapple: { hole:[3,3,3,2], board:[0,0,3,3] },
-  holdem:         { hole:[0,2,2,2], board:[0,0,3,5] }
+  // upCount = how many of the current hole cards are face-up (visible to the dealer/viewer).
+  // Draw and flop-board games: hole cards are NEVER visible to the dealer — upCount is always 0.
+  // Stud games: door card + 4th-6th street are up, 7th street is dealt down, matching real stud procedure.
+  draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
+  draw5:          { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
+  studSplit:      { hole:[3,3,4,6,7],       upCount:[1,1,2,4,4],       board:[0,0,0,0,0] },
+  superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0] },
+  drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5] },
+  doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5] },
+  pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4] },
+  crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3] },
+  holdem:         { hole:[0,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,5] }
 };
 
 
@@ -1716,8 +1729,9 @@ let reviewMode = false;
 let reviewQueue = [];
 let reviewPos = 0;
 let activeStepIndex = 0;
-let tableSeats = 0;
+let tableSeats = 7; // always a full 7-handed table
 let buttonSeatIndex = null;
+let sitOutSeatIndex = null;
 let seatHoleCards = [];
 let tableBoardCards = [];
 let tableBoard2Cards = [];
@@ -1727,8 +1741,9 @@ let tableBoard2Cards = [];
 const BUTTON_DEALCATS = new Set(['draw4','draw5','drawmaha','doubleBoard','pineapple','crazyPineapple','holdem']);
 
 function buildTable(game, isRedeal){
-  const numPlayers = tableSeats; // fixed for the whole practice session, set in startScenario
+  const numPlayers = tableSeats; // always 7 seats at the table
   const usesButton = !!(game && BUTTON_DEALCATS.has(game.dealCat));
+  const maxPlayers = (game && game.maxPlayers) || 7;
 
   if(usesButton){
     if(isRedeal && buttonSeatIndex !== null){
@@ -1740,6 +1755,15 @@ function buildTable(game, isRedeal){
     buttonSeatIndex = null; // stud formats: no button at all
   }
 
+  // With 7 seats but a game capped below 7, the seat directly under the gun
+  // (first to act, immediately left of the button) sits out that hand —
+  // matches the house rule printed on the actual cheat sheet.
+  if(usesButton && maxPlayers < numPlayers){
+    sitOutSeatIndex = (buttonSeatIndex + 1) % numPlayers;
+  } else {
+    sitOutSeatIndex = null;
+  }
+
   tableStrip.innerHTML = '';
   const dealerChip = document.createElement('span');
   dealerChip.className = 'seat-chip dealer';
@@ -1748,8 +1772,9 @@ function buildTable(game, isRedeal){
   for(let i = 0; i < numPlayers; i++){
     const chip = document.createElement('span');
     const onButton = usesButton && i === buttonSeatIndex;
+    const sittingOut = sitOutSeatIndex === i;
     chip.className = 'seat-chip' + (onButton ? ' button-seat' : '');
-    chip.textContent = 'Seat ' + (i+1) + (onButton ? ' \u25CF BTN' : '');
+    chip.textContent = 'Seat ' + (i+1) + (onButton ? ' \u25CF BTN' : '') + (sittingOut ? ' (sitting out)' : '');
     tableStrip.appendChild(chip);
   }
 
@@ -1761,7 +1786,11 @@ function buildTable(game, isRedeal){
     const deck = freshDeck();
     const holeMax = Math.max(...pattern.hole);
     for(let i = 0; i < numPlayers; i++){
-      seatHoleCards.push(deck.splice(0, holeMax));
+      if(i === sitOutSeatIndex){
+        seatHoleCards.push([]); // no cards dealt to the seat sitting out this hand
+      } else {
+        seatHoleCards.push(deck.splice(0, holeMax));
+      }
     }
     const boardMax = Math.max(...pattern.board);
     tableBoardCards = deck.splice(0, boardMax);
@@ -1798,6 +1827,7 @@ function renderTableView(stepIndex){
 
   const clampedIndex = Math.min(stepIndex, pattern.hole.length - 1);
   const holeCount = pattern.hole[clampedIndex];
+  const upCount = (pattern.upCount && pattern.upCount[clampedIndex]) || 0;
   const boardCount = pattern.board[clampedIndex];
 
   seatsEl.innerHTML = '';
@@ -1816,19 +1846,33 @@ function renderTableView(stepIndex){
     const x = 50 + 37 * Math.cos(rad);
     const y = 50 + 40 * Math.sin(rad);
     const onButton = buttonSeatIndex !== null && i === buttonSeatIndex;
+    const sittingOut = sitOutSeatIndex === i;
     const seatDiv = document.createElement('div');
-    seatDiv.className = 'seat-pos' + (onButton ? ' has-button' : '');
+    seatDiv.className = 'seat-pos' + (onButton ? ' has-button' : '') + (sittingOut ? ' sitting-out' : '');
     seatDiv.style.left = x + '%';
     seatDiv.style.top = y + '%';
-    const cards = (seatHoleCards[i] || []).slice(0, holeCount).map(c => cardHtml(c, true)).join('');
-    seatDiv.innerHTML = `<div class="seat-label">Seat ${i+1}${onButton ? ' <span class="btn-badge">D</span>' : ''}</div><div class="seat-cards">${cards}</div>`;
+
+    let cardsHtml = '';
+    if(sittingOut){
+      cardsHtml = '';
+    } else {
+      const seatCards = (seatHoleCards[i] || []).slice(0, holeCount);
+      const visibleUp = Math.min(upCount, seatCards.length);
+      const upCards = seatCards.slice(0, visibleUp).map(c => cardHtml(c, true, false));
+      const downCards = seatCards.slice(visibleUp).map(() => `<span class="mini-card face-down"></span>`);
+      cardsHtml = upCards.concat(downCards).join('');
+    }
+    const label = sittingOut
+      ? `Seat ${i+1} <span style="font-size:8px;">(sitting out)</span>`
+      : `Seat ${i+1}${onButton ? ' <span class="btn-badge">D</span>' : ''}`;
+    seatDiv.innerHTML = `<div class="seat-label">${label}</div><div class="seat-cards">${cardsHtml}</div>`;
     seatsEl.appendChild(seatDiv);
   }
 
-  board1El.innerHTML = tableBoardCards.slice(0, boardCount).map(c => cardHtml(c, false)).join('');
+  board1El.innerHTML = tableBoardCards.slice(0, boardCount).map(c => cardHtml(c, false, false)).join('');
   if(pattern.board2){
     const board2Count = pattern.board2[clampedIndex];
-    board2El.innerHTML = tableBoard2Cards.slice(0, board2Count).map(c => cardHtml(c, false)).join('');
+    board2El.innerHTML = tableBoard2Cards.slice(0, board2Count).map(c => cardHtml(c, false, false)).join('');
     board2El.style.display = 'flex';
   } else {
     board2El.innerHTML = '';
@@ -1843,7 +1887,7 @@ function startScenario(game, catTag){
   missedSteps = [];
   reviewMode = false;
   scenarioGameName.textContent = catTag + ' \u00b7 ' + game.name;
-  tableSeats = 3 + Math.floor(Math.random() * 4); // 3-6 players, fixed for this session
+  tableSeats = 7; // always a full 7-handed table
   buttonSeatIndex = null;
   buildTable(game, false);
   detailEl.classList.remove('open');
