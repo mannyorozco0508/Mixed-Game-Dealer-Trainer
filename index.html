@@ -2018,19 +2018,40 @@ function cardHtml(c, mini, delayMs, dx, dy){
 }
 
 // Cumulative hole/board card counts visible while each scenario step is on screen.
+//
+// faceSeq expresses face state BY PHYSICAL POSITION, one character per card in
+// the order it was dealt: 'D' = face down, 'U' = face up. This exists because
+// upCount alone is ambiguous — "1 up card" cannot distinguish Super Stud's real
+// deal (D D D D U) from the wrong one (U D D D D). The renderer reads faceSeq.
+// upCount is retained only as a derived total for existing checks.
+//
+// discardKeep lists which PHYSICAL SLOTS from the previous step survive a
+// discard. Super Stud discards two DOWN cards and keeps the up card, so the
+// renderer cannot simply drop cards from the end of the hand.
 const DEAL_PATTERNS = {
-  // upCount = how many of the current hole cards are face-up (visible to the dealer/viewer).
-  // Draw and flop-board games: hole cards are NEVER visible to the dealer — upCount is always 0.
-  // Stud games: door card + 4th-6th street are up, 7th street is dealt down, matching real stud procedure.
-  draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
-  draw5:          { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0] },
-  studSplit:      { hole:[3,3,4,6,7],       upCount:[1,1,2,4,4],       board:[0,0,0,0,0] },
-  superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0] },
-  drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5] },
-  doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5] },
-  pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4] },
-  crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3] },
-  holdem:         { hole:[0,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,5] }
+  draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0],
+                    faceSeq:['','DDDD','DDDD','DDDD','DDDD'] },
+  draw5:          { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  // Real 7-card stud: 2 down + 1 up on 3rd street, up cards on 4th-6th,
+  // 7th street dealt face down.
+  studSplit:      { hole:[3,3,4,6,7],       upCount:[1,1,2,4,4],       board:[0,0,0,0,0],
+                    faceSeq:['DDU','DDU','DDUU','DDUUUU','DDUUUUD'] },
+  // Super Stud: four down then the fifth face up, discard two DOWN cards
+  // (keeping the up card), then up cards until four are exposed, final down.
+  superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0],
+                    faceSeq:['','DDDDU','DDU','DDU','DDU','DDUUUUD'],
+                    discardKeep:{ 2:[0,1,4] } },
+  drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4],
+                    faceSeq:['DDD','DD','DD','DD'], discardKeep:{ 1:[0,1] } },
+  crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3],
+                    faceSeq:['DDD','DDD','DDD','DD'], discardKeep:{ 3:[0,1] } },
+  holdem:         { hole:[0,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,5],
+                    faceSeq:['','DD','DD','DD'] }
 };
 
 
@@ -2066,6 +2087,15 @@ let burnPileCount = 0;
 // pitched and rendered so far. The DOM only ever contains cards that have
 // genuinely landed — nothing is pre-rendered and faded in.
 let seatVisibleCardCounts = [];
+// Which physical card indices (into seatHoleCards) each seat currently holds,
+// in physical order. Discards filter this map rather than truncating the hand,
+// so Super Stud can drop two DOWN cards while keeping the face-up fifth card.
+let seatSlotMaps = [];
+// How many physical cards have actually been pitched to each seat. This is
+// NOT the same as how many are held: Super Stud pitches 9 cards over the hand
+// but retains 7 after discarding 2. Slicing by held-count would re-deal
+// already-dealt positions.
+let seatDealtCounts = [];
 let boardVisibleCount = 0;
 let board2VisibleCount = 0;
 // Bumped on every new hand / exit. Pending deal timers check this before
@@ -2131,7 +2161,24 @@ function buildTable(game, isRedeal){
   tableBoard2Cards = [];
   if(pattern){
     const deck = freshDeck();
-    const holeMax = Math.max(...pattern.hole);
+    // Physical cards dealt over the whole hand = sum of every positive step
+    // increase. Super Stud pitches 9 (5 initial + 4 later) but only retains 7
+    // after its discard, so maxHeld would under-deal.
+    let physicalPerSeat = 0, prevH = 0;
+    pattern.hole.forEach(h => { if(h > prevH) physicalPerSeat += (h - prevH); prevH = h; });
+    const activeSeats = numPlayers - (sitOutSeatIndex !== null ? 1 : 0);
+    const boardNeeded = Math.max(...pattern.board) + (pattern.board2 ? Math.max(...pattern.board2) : 0);
+
+    // KNOWN CONSTRAINT: 7 seats x 9 physical cards (Super Stud) = 63, which
+    // exceeds a 52-card deck. A real room solves this by reshuffling the
+    // mucked discards mid-hand (the cheat sheet's "Reshuffling Discards"
+    // rule) - only ~49 cards are ever live at once. Modelling that correctly
+    // needs deferred, street-by-street dealing rather than dealing each
+    // seat's full sequence upfront. Until that exists we deal from ONE deck
+    // and cap, because injecting a second deck would create duplicate card
+    // identities - far worse in training software than a short deal.
+    const perSeatCap = Math.floor((52 - boardNeeded) / Math.max(1, activeSeats));
+    const holeMax = Math.min(physicalPerSeat, perSeatCap);
     for(let i = 0; i < numPlayers; i++){
       if(i === sitOutSeatIndex){
         seatHoleCards.push([]); // no cards dealt to the seat sitting out this hand
@@ -2169,6 +2216,9 @@ function buildTable(game, isRedeal){
   // generation, so no stale timer can drop a card onto this fresh table.
   cancelPendingDeals();
   seatVisibleCardCounts = new Array(numPlayers).fill(0);
+  seatSlotMaps = [];
+  seatDealtCounts = new Array(numPlayers).fill(0);
+  for(let i = 0; i < numPlayers; i++) seatSlotMaps.push([]);
   boardVisibleCount = 0;
   board2VisibleCount = 0;
 
@@ -2343,19 +2393,36 @@ function updateTableView(stepIndex){
   // --- Handle DISCARDS first (negative delta) — remove cards, prefer
   // removing from the face-down portion, matching real discard procedure. ---
   if(holeTotalDelta < 0){
-    const removeCount = -holeTotalDelta;
+    // A discard removes SPECIFIC physical positions, not simply the last cards
+    // dealt. Super Stud discards two DOWN cards and keeps the face-up fifth,
+    // so truncating the end of the hand would wrongly strip the up card.
+    const keepSlots = pattern.discardKeep && pattern.discardKeep[clampedIndex];
     for(let i = 0; i < tableSeats; i++){
       if(sitOutSeatIndex === i) continue;
       const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
       if(!container) continue;
-      const cards = container.querySelectorAll('.mini-card');
-      // remove from the end (down cards were appended after up cards, so
-      // the end of the list is the down portion for every game that discards)
-      for(let r = 0; r < removeCount && cards.length - r - 1 >= 0; r++){
-        cards[cards.length - r - 1].remove();
+      const cardEls = Array.from(container.querySelectorAll('.mini-card'));
+      const currentMap = seatSlotMaps[i] || [];
+      if(keepSlots){
+        // Remove any element whose physical slot isn't in the keep list.
+        const keepSet = new Set(keepSlots);
+        const newMap = [];
+        currentMap.forEach((slot, pos) => {
+          if(keepSet.has(slot)){ newMap.push(slot); }
+          else if(cardEls[pos]) cardEls[pos].remove();
+        });
+        seatSlotMaps[i] = newMap;
+      } else {
+        // No explicit rule — fall back to dropping the most recent cards.
+        const removeCount = -holeTotalDelta;
+        for(let r = 0; r < removeCount && cardEls.length - r - 1 >= 0; r++){
+          cardEls[cardEls.length - r - 1].remove();
+        }
+        seatSlotMaps[i] = currentMap.slice(0, Math.max(0, currentMap.length - removeCount));
       }
-      seatVisibleCardCounts[i] = Math.max(0, (seatVisibleCardCounts[i] || 0) - removeCount);
+      seatVisibleCardCounts[i] = seatSlotMaps[i].length;
     }
+    applyFlipState(clampedIndex);
     prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
     return;
   }
@@ -2373,9 +2440,18 @@ function updateTableView(stepIndex){
   for(let i = 0; i < tableSeats; i++){
     if(sitOutSeatIndex === i){ perSeatNewCards.push([]); continue; }
     const seatCards = seatHoleCards[i] || [];
-    perSeatNewCards.push(seatCards.slice(prevHoleCount, targetHole));
+    // New cards continue from however many have PHYSICALLY been dealt to this
+    // seat — not from the held count, which a discard has already reduced.
+    const already = seatDealtCounts[i] || 0;
+    const newNeeded = targetHole - (seatSlotMaps[i] ? seatSlotMaps[i].length : 0);
+    perSeatNewCards.push(seatCards.slice(already, already + Math.max(0, newNeeded)));
   }
   const maxNewPerSeat = Math.max(0, ...perSeatNewCards.map(a => a.length));
+
+  // Face state comes from faceSeq BY PHYSICAL POSITION. An up-count total
+  // can't say WHICH card is exposed — that ambiguity is exactly what made
+  // Super Stud deal its up card first instead of fifth.
+  const faceSeq = (pattern.faceSeq && pattern.faceSeq[clampedIndex]) || '';
 
   // Build the pitch queue: the exact physical order cards leave the dealer's
   // hand — one card to each active seat, then around again for the next card.
@@ -2384,7 +2460,9 @@ function updateTableView(stepIndex){
     for(let i = 0; i < tableSeats; i++){
       const card = perSeatNewCards[i][round];
       if(card === undefined) continue;
-      const slotIndex = prevHoleCount + round; // fixed position in the hand
+      const slotIndex = (seatDealtCounts[i] || 0) + round; // physical deal index
+      // Where this card sits in the CURRENT hand (after any earlier discard)
+      const handPos = (seatSlotMaps[i] ? seatSlotMaps[i].length : 0) + round;
       const angle = seatAngle(i, tableSeats);
       const rad = angle * Math.PI / 180;
       const seatXPct = 50 + 37 * Math.cos(rad);
@@ -2393,7 +2471,8 @@ function updateTableView(stepIndex){
         kind: 'seat',
         seat: i,
         card,
-        faceUp: slotIndex < targetUp,
+        slotIndex,
+        faceUp: faceSeq.charAt(handPos) === 'U',
         dx: dealerPxX - (tableW * seatXPct / 100),
         dy: dealerPxY - (tableH * seatYPct / 100)
       });
@@ -2425,7 +2504,7 @@ function updateTableView(stepIndex){
       if(generation !== dealGeneration) return; // stale hand — drop it
       placePitchedCard(pitch);
       // Once the last card of this street lands, reconcile face-up/down state.
-      if(idx === pitchQueue.length - 1) applyFlipState(targetUp);
+      if(idx === pitchQueue.length - 1) applyFlipState(clampedIndex);
     };
     if(idx === 0){
       fire(); // first card goes immediately, no dead air
@@ -2433,7 +2512,7 @@ function updateTableView(stepIndex){
       pendingDealTimers.push(setTimeout(fire, idx * stagger));
     }
   });
-  if(pitchQueue.length === 0) applyFlipState(targetUp);
+  if(pitchQueue.length === 0) applyFlipState(clampedIndex);
 
   prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
 }
@@ -2457,6 +2536,9 @@ function placePitchedCard(pitch){
       container.insertAdjacentHTML('beforeend', `<span class="mini-card face-down" style="${animStyle}"></span>`);
     }
     seatVisibleCardCounts[pitch.seat] = (seatVisibleCardCounts[pitch.seat] || 0) + 1;
+    if(!seatSlotMaps[pitch.seat]) seatSlotMaps[pitch.seat] = [];
+    seatSlotMaps[pitch.seat].push(pitch.slotIndex);
+    seatDealtCounts[pitch.seat] = Math.max(seatDealtCounts[pitch.seat] || 0, pitch.slotIndex + 1);
     return;
   }
   const el = document.getElementById(pitch.kind === 'board1' ? 'boardRow1' : 'boardRow2');
@@ -2473,25 +2555,29 @@ function flushPendingDeals(){
   pendingDealTimers = [];
 }
 
-// Brings already-placed cards in line with a street's up-count. In stud an
-// earlier down card is never revealed later, so in practice this only ever
-// affects cards from the current street — but running it keeps the rendered
-// table exactly consistent with the pattern data. Presentation only: card
-// identity in seatHoleCards is never touched.
-function applyFlipState(targetUp){
+// Brings already-placed cards in line with a street's face sequence. Reads
+// faceSeq BY POSITION so it can never mistake "one up card" for "the first
+// card is up". Presentation only — card identity is never touched, and cards
+// are never reordered to group face-up cards together.
+function applyFlipState(stepIndex){
+  const pattern = currentScenario && DEAL_PATTERNS[currentScenario.dealCat];
+  if(!pattern) return;
+  const clamped = Math.min(stepIndex, pattern.hole.length - 1);
+  const faceSeq = (pattern.faceSeq && pattern.faceSeq[clamped]) || '';
   for(let i = 0; i < tableSeats; i++){
     if(sitOutSeatIndex === i) continue;
     const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
     if(!container) continue;
     const seatCards = seatHoleCards[i] || [];
-    Array.from(container.children).forEach((el, idx) => {
-      const shouldBeUp = idx < targetUp;
+    const slotMap = seatSlotMaps[i] || [];
+    Array.from(container.children).forEach((el, pos) => {
+      const shouldBeUp = faceSeq.charAt(pos) === 'U';
       const isUp = !el.classList.contains('face-down');
-      if(shouldBeUp && !isUp && seatCards[idx]){
-        const c = seatCards[idx];
+      const card = seatCards[slotMap[pos]];
+      if(shouldBeUp && !isUp && card){
         el.classList.remove('face-down');
-        el.textContent = cardFaceText(c);
-        if(cardIsRed(c)) el.classList.add('red');
+        el.textContent = cardFaceText(card);
+        if(cardIsRed(card)) el.classList.add('red');
       } else if(!shouldBeUp && isUp){
         el.classList.add('face-down');
         el.classList.remove('red');
@@ -2629,7 +2715,13 @@ function runShowdown(){
     const held = seatHoleCards[i] || [];
     const pattern = DEAL_PATTERNS[currentScenario.dealCat];
     const finalCount = pattern ? pattern.hole[pattern.hole.length - 1] : held.length;
-    if(finalCount > 0) players.push({ seat:i, cards: held.slice(0, finalCount) });
+    // Use the slot map so discarded physical cards are genuinely excluded from
+    // evaluation rather than silently reappearing via a positional slice.
+    const slotMap = seatSlotMaps[i] || [];
+    const cards = slotMap.length
+      ? slotMap.map(s => held[s]).filter(Boolean)
+      : held.slice(0, finalCount);
+    if(cards.length > 0) players.push({ seat:i, cards });
   }
   return window.RailShowdown.evaluateShowdown({
     game: currentScenario,
@@ -2722,7 +2814,12 @@ function revealAllHands(){
     if(i === sitOutSeatIndex) continue;
     const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
     if(!container) continue;
-    const held = (seatHoleCards[i] || []).slice(0, finalCount);
+    // Reveal exactly the cards the seat actually RETAINS — using the slot map
+    // rather than slicing, so discarded positions aren't wrongly resurrected.
+    const slotMap = seatSlotMaps[i] || [];
+    const held = slotMap.length
+      ? slotMap.map(s => (seatHoleCards[i] || [])[s]).filter(Boolean)
+      : (seatHoleCards[i] || []).slice(0, finalCount);
     container.innerHTML = held.map(c => cardHtml(c, true)).join('');
     seatVisibleCardCounts[i] = held.length;
   }
