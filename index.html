@@ -1883,11 +1883,41 @@ function selectGame(card, game, catTag){
 }
 
 /* ---------------- Card Deck & Deal Patterns ---------------- */
-const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-const SUITS = [['\u2660','black'],['\u2665','red'],['\u2666','red'],['\u2663','black']];
+/* ============================================================
+   CANONICAL CARD MODEL
+   ------------------------------------------------------------
+   A card is exactly: { rank, suit }
+
+     rank: '2'..'9' | 'T' | 'J' | 'Q' | 'K' | 'A'   (T = ten)
+     suit: 'S' | 'H' | 'D' | 'C'                     (uppercase)
+
+   This is the SAME model used by cards-eval.js, so cards dealt here
+   can be handed straight to the evaluator with no translation.
+
+   Card IDENTITY (rank/suit) is immutable once dealt. Anything about
+   how a card is currently *shown* — face up/down, which seat holds it,
+   its position on the board — is render state and lives in the DOM or
+   in the table-state variables, never on the card object itself.
+
+   Presentation (suit symbol, red/black) is DERIVED from suit below,
+   never stored on the card.
+   ============================================================ */
+const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+const SUITS = ['S','H','D','C'];
+const SUIT_SYMBOL = { S:'\u2660', H:'\u2665', D:'\u2666', C:'\u2663' };
+const RED_SUITS = new Set(['H','D']);
+
+// The one and only place a card object is constructed.
+function createCard(rank, suit){
+  return { rank, suit };
+}
+// Derived presentation helpers — never stored on the card itself.
+function cardIsRed(card){ return RED_SUITS.has(card.suit); }
+function cardFaceText(card){ return card.rank + SUIT_SYMBOL[card.suit]; }
+
 function freshDeck(){
   const d = [];
-  RANKS.forEach(r => SUITS.forEach(([s,c]) => d.push({r, s, c})));
+  RANKS.forEach(r => SUITS.forEach(s => d.push(createCard(r, s))));
   for(let i = d.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
@@ -1903,7 +1933,7 @@ function cardHtml(c, mini, delayMs, dx, dy){
   if(dy !== undefined) styleParts.push(`--deal-dy:${dy}px`);
   if(dx !== undefined || dy !== undefined) styleParts.push(`--deal-rot:${rot.toFixed(1)}deg`);
   const styleAttr = styleParts.length ? ` style="${styleParts.join(';')}"` : '';
-  return `<span class="${cls}${c.c === 'red' ? ' red' : ''}"${styleAttr}>${c.r}${c.s}</span>`;
+  return `<span class="${cls}${cardIsRed(c) ? ' red' : ''}"${styleAttr}>${cardFaceText(c)}</span>`;
 }
 
 // Cumulative hole/board card counts visible while each scenario step is on screen.
@@ -2271,8 +2301,8 @@ function updateTableView(stepIndex){
       if(shouldBeUp && !isUp && seatCards[idx]){
         const c = seatCards[idx];
         el.classList.remove('face-down');
-        el.textContent = c.r + c.s;
-        if(c.c === 'red') el.classList.add('red');
+        el.textContent = cardFaceText(c);
+        if(cardIsRed(c)) el.classList.add('red');
       } else if(!shouldBeUp && isUp){
         el.classList.add('face-down');
         el.classList.remove('red');
@@ -2546,8 +2576,9 @@ function closeScenario(){
 document.getElementById('scenarioExit').addEventListener('click', closeScenario);
 
 /* ---------------- Engine Test Sandbox ---------------- */
-function cardLabel(c){ const suitChar = {S:'\u2660',H:'\u2665',D:'\u2666',C:'\u2663'}[c.suit]; return c.rank + suitChar; }
-function handLabel(cards){ return cards.map(cardLabel).join(' '); }
+// Both the app and the engine now speak the same card model, so this reuses
+// the canonical presentation helper rather than keeping its own suit mapping.
+function handLabel(cards){ return cards.map(cardFaceText).join(' '); }
 
 document.getElementById('engineTestBtn').addEventListener('click', () => {
   const out = document.getElementById('engineTestOutput');
