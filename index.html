@@ -372,7 +372,7 @@
   }
   #scenario-overlay.open{ display:flex; }
   .scenario-header{
-    padding:20px 20px 14px;
+    padding:12px 20px 10px;
     border-bottom:1px solid rgba(201,162,39,0.25);
     position:sticky;
     top:0;
@@ -415,10 +415,8 @@
     transition:width 0.3s ease;
   }
   .table-strip{
-    display:flex;
-    gap:6px;
-    margin-top:12px;
-    flex-wrap:wrap;
+    display:none; /* superseded by the table's own player plates and badges;
+                     kept in the DOM so buildTable()'s existing writes are safe */
   }
   .seat-chip{
     font-family:'IBM Plex Mono', monospace;
@@ -448,25 +446,33 @@
   .landscape-split{
     display:block;
   }
-  /* Optional landscape layout for phones — kicks in only if the device is
-     physically rotated; portrait stays the default, nothing is forced. */
-  @media (orientation:landscape) and (max-height:500px){
-    .scenario-body{ max-width:900px; padding:16px 20px 24px; }
+  /* Side-by-side table + decision layout.
+     Measured budget showed the stacked layout overflowing iPad landscape by
+     ~158px and desktop by ~26px, forcing scrolling during every hand. Any
+     viewport wide enough to sit them side by side now does so, which reclaims
+     that vertical space entirely. Portrait stays stacked. */
+  @media (min-width: 820px){
+    .scenario-body{ max-width:1400px; padding:14px 20px 20px; }
     .landscape-split{
       display:flex;
-      gap:24px;
+      gap:22px;
       align-items:flex-start;
     }
-    .poker-table{
-      flex:0 0 360px;
-      height:230px;
-      margin-bottom:0;
-    }
-    .qa-column{
-      flex:1 1 auto;
-      min-width:0;
-    }
-    .scenario-prompt{ font-size:17px; margin-bottom:14px; }
+    .dealer-box-col{ flex:1 1 62%; min-width:0; }
+    .qa-column{ flex:1 1 38%; min-width:280px; }
+  }
+  /* Short phone landscape keeps its tighter variant on top of the above. */
+  @media (orientation:landscape) and (max-height:500px){
+    .scenario-body{ max-width:900px; padding:10px 14px 14px; }
+    .landscape-split{ gap:16px; }
+    .dealer-box-col{ flex:0 0 55%; }
+    .qa-column{ flex:1 1 45%; min-width:0; }
+    .poker-table{ height:210px; margin-bottom:0; }
+    .scenario-prompt{ font-size:16px; margin-bottom:10px; }
+    .option-btn{ padding:11px 12px; font-size:13px; }
+    .dealer-hud{ padding:5px 9px; margin-bottom:5px; }
+    .street-indicator{ margin-bottom:5px; }
+    .dealer-cue{ min-height:14px; margin-top:2px; }
   }
   .street-tag{
     font-family:'IBM Plex Mono', monospace;
@@ -614,6 +620,9 @@
     position:relative;
     height:310px;
     margin-bottom:24px;
+    /* Top seat sits at y=10%; its plate (label + cards) extends upward, so the
+       container needs headroom or it clips. Measured, not guessed. */
+    padding-top:8px;
   }
   .table-oval{
     position:absolute;
@@ -809,7 +818,7 @@
     .option-btn{ font-size:15px; padding:16px 18px; }
     .feedback-box{ font-size:14.5px; padding:16px 18px; }
 
-    .poker-table{ height:360px; }
+    .poker-table{ height:400px; }
     .mini-card{ width:19px; height:27px; font-size:9.5px; }
     .board-card{ width:26px; height:38px; font-size:11px; }
     .seat-pos{ width:104px; }
@@ -829,9 +838,9 @@
     .option-btn{ font-size:16px; padding:18px 20px; }
     .feedback-box{ font-size:15.5px; padding:18px 20px; }
 
-    .poker-table{ height:430px; }
+    .poker-table{ height:470px; }
     .mini-card{ width:24px; height:34px; font-size:11px; }
-    .board-card{ width:34px; height:49px; font-size:13.5px; }
+    .board-card{ width:38px; height:54px; font-size:15px; }
     .seat-pos{ width:124px; }
     .seat-label{ font-size:11px; padding:4px 8px; }
     .btn-badge{ width:17px; height:17px; font-size:10px; }
@@ -881,14 +890,14 @@
   .street-pill{
     flex:0 0 auto;
     font-family:'IBM Plex Mono', monospace;
-    font-size:9.5px;
-    letter-spacing:0.05em;
+    font-size:9px;
+    letter-spacing:0.04em;
     text-transform:uppercase;
     color:var(--slate-400);
-    background:var(--felt-800);
-    border:1px solid rgba(237,230,214,0.12);
+    background:transparent;
+    border:1px solid rgba(237,230,214,0.1);
     border-radius:2px;
-    padding:3px 8px;
+    padding:2px 7px;
     white-space:nowrap;
   }
   .street-pill.active{
@@ -936,8 +945,9 @@
   .burn-pile .mini-card.face-down:first-child{ margin-left:0; }
   .chip-stack{
     font-family:'IBM Plex Mono', monospace;
-    font-size:8.5px;
-    color:var(--brass-300);
+    font-size:8px;
+    color:var(--slate-400);
+    opacity:0.75;
     margin-top:2px;
   }
   .player-badge-row{
