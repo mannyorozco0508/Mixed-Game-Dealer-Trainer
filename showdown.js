@@ -105,6 +105,7 @@ function famOmahaHigh(ctx, board){
 function famStudHigh(ctx){
   const results = ctx.players.map(p => {
     const best = E.bestHighFromN(p.cards);
+    if(!best || !best.score) return { seat:p.seat, value:null, label:'Incomplete hand', cards:[] };
     return { seat:p.seat, value:best.score, label:labelHigh(best.score), cards:best.cards };
   });
   return { sides:[{ key:'high', label:'High', results, winners:bestSeats(results, cmpHigh) }] };
@@ -114,6 +115,11 @@ function famLowA5(ctx, opts){
   const qualify = opts && opts.eightOrBetter;
   const results = ctx.players.map(p => {
     const best = E.bestLowA5FromN(p.cards);
+    // A hand with fewer than five cards has no low at all — the evaluator
+    // returns a null score, which must not be fed to the qualifier.
+    if(!best || !best.score){
+      return { seat:p.seat, value:null, label:'No qualifying low', qualifies:false, cards:[] };
+    }
     const qualifies = qualify ? E.qualifiesEightLow(best.score) : true;
     return {
       seat:p.seat,
@@ -129,6 +135,7 @@ function famLowA5(ctx, opts){
 function famLow27(ctx){
   const results = ctx.players.map(p => {
     const best = E.bestLow27FromN(p.cards);
+    if(!best || !best.score) return { seat:p.seat, value:null, label:'No hand', cards:[] };
     return { seat:p.seat, value:best.score, label:labelLowCards(best.cards, false), cards:best.cards };
   });
   // 2-7 is the INVERSE of high ranking: the lowest evaluate5High score wins.
@@ -175,6 +182,24 @@ function famArchie(ctx){
   };
 }
 
+/* Omaha low using the STRICT 2-from-hole + 3-from-board rule (Big O Hi-Lo).
+   Distinct from the Drawmaha low families, which score the low from hole
+   cards only. Delegates to the validated bestOmahaLowA5 evaluator. */
+function famOmahaLow8(ctx){
+  const results = ctx.players.map(p => {
+    const best = E.bestOmahaLowA5(p.cards, ctx.board);
+    const qualifies = best.score ? E.qualifiesEightLow(best.score) : false;
+    return {
+      seat: p.seat,
+      value: qualifies ? best.score : null,
+      label: qualifies ? labelLowCards(best.cards, true) : 'No qualifying low',
+      qualifies,
+      cards: best.cards
+    };
+  });
+  return { results, winners: bestSeats(results, cmpLow) };
+}
+
 /* ---------- Game registry ----------
    cardSource: 'hole' = player's own cards only (draw/stud)
                'holeAndBoard' = Hold'em-style best-5-of-all
@@ -203,6 +228,9 @@ const SHOWDOWN_RULES = {
   'Drawmaha Badugi':          { family:'omaha+badugi',  needsBoard:5 },
   // --- Two boards ---
   'Double Board Omaha':       { family:'doubleboard',   needsBoard:5, needsBoard2:5 },
+  // --- Big O (five-card Omaha), strict 2-from-hole + 3-from-board ---
+  'Big O Hi-Lo':              { family:'omaha-hilo8',   needsBoard:5 },
+  'Big O PLO':                { family:'omaha-high',    needsBoard:5 },
   // --- Hold'em style ---
   'Pineapple':                { family:'holdem-high',   needsBoard:5 },
   'Crazy Pineapple':          { family:'holdem-high',   needsBoard:5 },
@@ -247,6 +275,18 @@ function buildSides(family, ctx){
       ];
     }
     case 'archie': return famArchie(ctx).sides;
+    case 'omaha-high': {
+      const o = famOmahaHigh(ctx);
+      return [{ key:'high', label:'High', results:o.results, winners:o.winners }];
+    }
+    case 'omaha-hilo8': {
+      const o = famOmahaHigh(ctx);
+      const l = famOmahaLow8(ctx);
+      return [
+        { key:'high', label:'High', results:o.results, winners:o.winners },
+        { key:'low',  label:'Low (8-or-better)', results:l.results, winners:l.winners }
+      ];
+    }
     case 'omaha+drawhigh': {
       const o = famOmahaHigh(ctx);
       const d = ctx.players.map(p => {
