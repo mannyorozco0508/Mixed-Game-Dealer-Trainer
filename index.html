@@ -1552,6 +1552,125 @@ const DATA = [
     tag: "Omaha & Flop",
     desc: "Hole cards + shared community board",
     games: [
+      { name:"Big O Hi-Lo", dealCat:"bigO", maxPlayers:7, pot:"split", meta:"5 hole cards · Omaha board · 8-or-better", flow:[
+        "Deal 5 hole cards face down to each player",
+        "Betting round",
+        "Burn, deal flop (3) — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown: 50% best Hi + 50% best 8-or-better Lo"
+      ], notes:"Five-card Omaha, high-low split. Both the high AND the low must use exactly 2 hole cards + 3 board cards. Low qualifies at 8-or-better; if no low qualifies, the high scoops.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New Big O Hi-Lo hand. How many cards does each player get, and how are they dealt?",
+          options:[
+            {text:"5 cards, all face down, one at a time around the table", correct:true, feedback:"Right — Big O is five-card Omaha. All five go out face down, one card per player per pass."},
+            {text:"4 cards face down, like standard Omaha", correct:false, feedback:"That's regular Omaha. Big O gives each player five hole cards, not four."},
+            {text:"5 cards, with the last one face up", correct:false, feedback:"No up cards in Big O — it's a flop game, all hole cards stay face down until showdown."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Betting is complete. What's next?",
+          options:[
+            {text:"Burn one card, then deal the flop (3 cards)", correct:true, feedback:"Correct — always burn before the board, same as any flop game."},
+            {text:"Deal the flop with no burn", correct:false, feedback:"The Golden Rule applies: always burn before dealing to the board."},
+            {text:"Let players discard down to 4 cards first", correct:false, feedback:"There's no discard in Big O — players keep all five hole cards through the hand."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"A player has four spades in the hole and there are two spades on the flop. Do they have a flush draw?",
+          options:[
+            {text:"They need exactly 2 hole cards + 3 board cards, so they'd need three spades on the board", correct:true, feedback:"Exactly — the 2+3 rule is absolute in Big O. Four spades in hand doesn't help unless three come on the board."},
+            {text:"Yes — four in hand plus two on board makes six spades", correct:false, feedback:"That's Hold'em thinking. Omaha construction requires exactly two from hand and exactly three from the board."},
+            {text:"Yes, because Big O allows using any number of hole cards", correct:false, feedback:"Big O follows strict Omaha rules — exactly two hole cards, no more, no fewer."}
+          ]
+        },
+        {
+          street:"Turn",
+          prompt:"Turn is out and bet. What's next?",
+          options:[
+            {text:"Burn, then deal the river", correct:true, feedback:"Correct — burn before the final board card."},
+            {text:"Go straight to showdown", correct:false, feedback:"The river still has to come out and be bet on."},
+            {text:"Deal the river with no burn since it's the last card", correct:false, feedback:"Every board card gets a burn, including the river."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"The board is K-9-7-4-2. One player shows A-2-3-5-6. What do they have for low, and does it qualify?",
+          options:[
+            {text:"They use exactly 2 hole cards + 3 board cards — A-2 with 7-4-2 gives 7-4-3-2-A, which qualifies (8-or-better)", correct:true, feedback:"Right. The low still obeys the 2+3 rule, and any five unpaired cards eight-or-lower qualify."},
+            {text:"No qualifying low, because the board only has three low cards", correct:false, feedback:"Three low cards on the board is exactly enough — the player supplies the other two from their hand."},
+            {text:"They can use A-2-3 from hand plus 4-2 from the board", correct:false, feedback:"That's three hole cards. Big O requires exactly two from hand for the low as well as the high."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"No player can make an 8-or-better low. How does the pot get awarded?",
+          options:[
+            {text:"The best high hand scoops the entire pot", correct:true, feedback:"Correct — with no qualifying low, there's no low half to award, so high takes it all."},
+            {text:"The pot splits between the two best high hands", correct:false, feedback:"Only if they tie. Otherwise the single best high hand takes the whole pot."},
+            {text:"The lowest hand takes the low half even without qualifying", correct:false, feedback:"The 8-or-better qualifier is absolute — no qualifier means no low winner."}
+          ]
+        }
+      ]},
+      { name:"Big O PLO", dealCat:"bigO", maxPlayers:7, pot:"single", meta:"5 hole cards · Omaha board · high only", flow:[
+        "Deal 5 hole cards face down to each player",
+        "Betting round",
+        "Burn, deal flop (3) — betting round",
+        "Burn, deal turn — betting round",
+        "Burn, deal river — betting round",
+        "Showdown: best Omaha high hand"
+      ], notes:"Five-card Omaha, high only. Exactly 2 hole cards + 3 board cards. Played pot-limit in the room; this trainer covers dealing procedure, not betting math.",
+      scenario:[
+        {
+          street:"Deal",
+          prompt:"New Big O PLO hand. What goes out to each player?",
+          options:[
+            {text:"5 hole cards face down, one at a time around the table", correct:true, feedback:"Right — same five-card deal as Big O Hi-Lo. Only the showdown differs."},
+            {text:"4 hole cards face down", correct:false, feedback:"That's standard PLO. Big O deals five."},
+            {text:"5 hole cards, players discard one before the flop", correct:false, feedback:"No discard in Big O — that's a Pineapple-family mechanic."}
+          ]
+        },
+        {
+          street:"Pre-Flop",
+          prompt:"Betting is done. What's next?",
+          options:[
+            {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Correct — burn before every board card."},
+            {text:"Deal the flop with no burn", correct:false, feedback:"Always burn before the board."},
+            {text:"Deal a fourth street card to each player", correct:false, feedback:"Big O is a flop game — all remaining cards go to the shared board, not to players."}
+          ]
+        },
+        {
+          street:"Flop",
+          prompt:"The board shows A-K-Q all spades. A player holds one spade. Can they make a flush?",
+          options:[
+            {text:"No — they need exactly two spades in hand to use three from the board", correct:true, feedback:"Correct. One hole spade can't work: the 2+3 rule means they'd be using only one hole card."},
+            {text:"Yes, one spade plus three board spades makes a flush", correct:false, feedback:"That's four cards using only one from hand. Omaha requires exactly two hole cards."},
+            {text:"Yes, they can play the board's flush", correct:false, feedback:"You can never play the board in Omaha — two hole cards must always be used."}
+          ]
+        },
+        {
+          street:"Turn/River",
+          prompt:"The board runs out J-T-9-8-7. A player holds A-K-2-3-4. Do they have a straight?",
+          options:[
+            {text:"No — the board straight can't be played, and their two best hole cards don't complete one", correct:true, feedback:"Right. This is the classic board-made-hand trap: in Omaha the board alone is never a hand, and A-K doesn't connect to J-T-9-8-7."},
+            {text:"Yes, the board makes a straight so everyone has it", correct:false, feedback:"Playing the board is impossible in Omaha — exactly two hole cards must be used."},
+            {text:"Yes, they can use the A for a broadway straight", correct:false, feedback:"That would need one hole card, and there's no K-Q-J-T-A available using exactly two from hand plus three from board."}
+          ]
+        },
+        {
+          street:"Showdown",
+          prompt:"How is the winner determined?",
+          options:[
+            {text:"Best high hand using exactly 2 hole cards + 3 board cards — no low side", correct:true, feedback:"Correct. Big O PLO is high only; the whole pot goes to the best Omaha high hand."},
+            {text:"Split between best high and best 8-or-better low", correct:false, feedback:"That's Big O Hi-Lo. The PLO version is high only."},
+            {text:"Best five-card hand using any combination of hole and board cards", correct:false, feedback:"That's Hold'em construction. Omaha is strictly two from hand, three from board."}
+          ]
+        }
+      ]},
       { name:"Drawmaha Hi", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
         "Deal 5 hole cards — betting round",
         "Burn, deal flop (3) — betting round",
@@ -2044,6 +2163,12 @@ const DEAL_PATTERNS = {
                     discardKeep:{ 2:[0,1,4] } },
   drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5],
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  // Big O: five face-down hole cards, standard complete community board.
+  // Both Hi-Lo and PLO share this dealing shape — they differ only at showdown.
+  // Six entries because Big O Hi-Lo has a sixth showdown question; PLO reads
+  // the first five and simply never advances to index 5.
+  bigO:           { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,4,5,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5],
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
   pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4],
@@ -2108,6 +2233,10 @@ let pendingDealTimers = [];
 // questions end, not where a real hand ends) — the showdown needs to complete
 // the board to evaluate legitimately. Never used to change what's rendered.
 let remainingDeck = [];
+// Cards that have legitimately left play and may be reshuffled back into the
+// live deck if it runs short mid-hand. Only mucked/discarded cards go here —
+// never cards still held by a player, on the board, or burned.
+let muckPile = [];
 // Showdown state for the current hand.
 let showdownResult = null;
 let showdownBoard = [];
@@ -2169,21 +2298,18 @@ function buildTable(game, isRedeal){
     const activeSeats = numPlayers - (sitOutSeatIndex !== null ? 1 : 0);
     const boardNeeded = Math.max(...pattern.board) + (pattern.board2 ? Math.max(...pattern.board2) : 0);
 
-    // KNOWN CONSTRAINT: 7 seats x 9 physical cards (Super Stud) = 63, which
-    // exceeds a 52-card deck. A real room solves this by reshuffling the
-    // mucked discards mid-hand (the cheat sheet's "Reshuffling Discards"
-    // rule) - only ~49 cards are ever live at once. Modelling that correctly
-    // needs deferred, street-by-street dealing rather than dealing each
-    // seat's full sequence upfront. Until that exists we deal from ONE deck
-    // and cap, because injecting a second deck would create duplicate card
-    // identities - far worse in training software than a short deal.
-    const perSeatCap = Math.floor((52 - boardNeeded) / Math.max(1, activeSeats));
-    const holeMax = Math.min(physicalPerSeat, perSeatCap);
+    // DEFERRED DEALING: only the FIRST street's cards are dealt upfront.
+    // Later streets draw from the live deck as they're reached, which is how a
+    // real deal works and is what lets 7-handed Super Stud complete: the two
+    // cards each player discards go to the muck, and the muck is legitimately
+    // reshuffled back in when the live deck runs short (the cheat sheet's
+    // "Reshuffling Discards" rule). Only ~49 identities are ever live at once.
+    const firstStreetCards = pattern.hole[0] > 0 ? pattern.hole[0] : (pattern.hole[1] || 0);
     for(let i = 0; i < numPlayers; i++){
       if(i === sitOutSeatIndex){
         seatHoleCards.push([]); // no cards dealt to the seat sitting out this hand
       } else {
-        seatHoleCards.push(deck.splice(0, holeMax));
+        seatHoleCards.push(deck.splice(0, firstStreetCards));
       }
     }
     const boardMax = Math.max(...pattern.board);
@@ -2194,6 +2320,7 @@ function buildTable(game, isRedeal){
     }
     remainingDeck = deck; // whatever's left, for completing boards at showdown
   }
+  muckPile = [];
   showdownResult = null;
   showdownBoard = [];
   showdownBoard2 = [];
@@ -2407,9 +2534,15 @@ function updateTableView(stepIndex){
         // Remove any element whose physical slot isn't in the keep list.
         const keepSet = new Set(keepSlots);
         const newMap = [];
+        const seatCards = seatHoleCards[i] || [];
         currentMap.forEach((slot, pos) => {
           if(keepSet.has(slot)){ newMap.push(slot); }
-          else if(cardEls[pos]) cardEls[pos].remove();
+          else {
+            // The physical card leaves play and joins the muck, where it
+            // becomes eligible for a legitimate reshuffle later in the hand.
+            if(seatCards[slot]) muckPile.push(seatCards[slot]);
+            if(cardEls[pos]) cardEls[pos].remove();
+          }
         });
         seatSlotMaps[i] = newMap;
       } else {
@@ -2443,8 +2576,15 @@ function updateTableView(stepIndex){
     // New cards continue from however many have PHYSICALLY been dealt to this
     // seat — not from the held count, which a discard has already reduced.
     const already = seatDealtCounts[i] || 0;
-    const newNeeded = targetHole - (seatSlotMaps[i] ? seatSlotMaps[i].length : 0);
-    perSeatNewCards.push(seatCards.slice(already, already + Math.max(0, newNeeded)));
+    const newNeeded = Math.max(0, targetHole - (seatSlotMaps[i] ? seatSlotMaps[i].length : 0));
+    // DEFERRED DEALING: draw the cards this street actually needs from the
+    // live deck now, rather than having pre-allocated the whole hand upfront.
+    while(seatCards.length < already + newNeeded){
+      const c = drawCard();
+      if(!c) break; // deck and muck both exhausted — cannot deal further
+      seatCards.push(c);
+    }
+    perSeatNewCards.push(seatCards.slice(already, already + newNeeded));
   }
   const maxNewPerSeat = Math.max(0, ...perSeatNewCards.map(a => a.length));
 
@@ -2515,6 +2655,22 @@ function updateTableView(stepIndex){
   if(pitchQueue.length === 0) applyFlipState(clampedIndex);
 
   prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
+}
+
+// Draws one card from the live deck. If the deck runs dry mid-hand, the muck
+// (only genuinely discarded cards) is reshuffled back in — the documented
+// house rule. A second deck is NEVER injected, so no rank/suit identity can
+// ever exist twice at the same time.
+function drawCard(){
+  if(remainingDeck.length === 0 && muckPile.length > 0){
+    for(let i = muckPile.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [muckPile[i], muckPile[j]] = [muckPile[j], muckPile[i]];
+    }
+    remainingDeck = muckPile;
+    muckPile = [];
+  }
+  return remainingDeck.length ? remainingDeck.shift() : null;
 }
 
 // Cancels every in-flight pitch and invalidates their generation.
