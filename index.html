@@ -964,6 +964,66 @@
     width:100%;
   }
   .continue-hand-btn.show{ display:block; }
+
+  /* ---- Showdown (restrained; training software, not a slot machine) ---- */
+  .showdown-panel{ padding-top:4px; }
+  .showdown-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:0.14em;
+    color:var(--brass-300);
+    margin-bottom:14px;
+  }
+  .showdown-side{
+    border-left:2px solid rgba(201,162,39,0.4);
+    padding-left:12px;
+    margin-bottom:14px;
+  }
+  .showdown-side-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    margin-bottom:5px;
+  }
+  .showdown-winner-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:baseline;
+    padding:3px 0;
+  }
+  .showdown-seat{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--ivory-100);
+  }
+  .showdown-hand{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--brass-300);
+    text-align:right;
+  }
+  .showdown-none{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--chip-red);
+    letter-spacing:0.06em;
+  }
+  .showdown-note{
+    font-size:13px;
+    color:var(--slate-400);
+    line-height:1.55;
+    margin-bottom:14px;
+  }
+  .seat-pos.showdown-winner .seat-label{
+    border-color:var(--brass-500);
+    color:var(--brass-300);
+    background:rgba(201,162,39,0.14);
+  }
 </style>
 </head>
 <body>
@@ -971,6 +1031,7 @@
 <script src="cards-eval.js"></script>
 <script src="betting-engine.js"></script>
 <script src="ai-players.js"></script>
+<script src="showdown.js"></script>
 
 <header>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
@@ -1979,6 +2040,15 @@ let seatEls = [];             // persistent seat-pos DOM node per seat, built on
 let dealerBuiltForHand = false;
 let prevHoleCount = 0, prevUpCount = 0, prevBoardCount = 0, prevBoard2Count = 0;
 let burnPileCount = 0;
+// Cards left in the deck after dealing. Retained because some games' quiz
+// DEAL_PATTERNS intentionally stop before a full board (they end where the
+// questions end, not where a real hand ends) — the showdown needs to complete
+// the board to evaluate legitimately. Never used to change what's rendered.
+let remainingDeck = [];
+// Showdown state for the current hand.
+let showdownResult = null;
+let showdownBoard = [];
+let showdownBoard2 = [];
 
 // Games where a dealer button rotates player-to-player each hand.
 // 7-card stud formats have no button — bring-in determines action instead.
@@ -2042,7 +2112,11 @@ function buildTable(game, isRedeal){
       const board2Max = Math.max(...pattern.board2);
       tableBoard2Cards = deck.splice(0, board2Max);
     }
+    remainingDeck = deck; // whatever's left, for completing boards at showdown
   }
+  showdownResult = null;
+  showdownBoard = [];
+  showdownBoard2 = [];
 
   // Cosmetic-only chip stacks (presentation data — NOT wired to any real
   // betting math, per instruction). Regenerated fresh each hand.
@@ -2426,10 +2500,143 @@ function renderStep(){
 
   progressFill.style.width = ((stepIndex) / steps.length * 100) + '%';
   if(stepIndex >= steps.length){
-    renderSummary(true);
+    renderShowdown();
     return;
   }
   renderStepContent(steps[stepIndex], stepIndex, stepIndex === steps.length - 1);
+}
+
+/* ---------------- Showdown ----------------
+   Runs ONCE when the final dealer decision is complete. All poker logic
+   lives in showdown.js / cards-eval.js — this function only orchestrates
+   and renders. Cosmetic chip stacks are deliberately NOT consulted. */
+function completeBoardsForShowdown(){
+  const pattern = currentScenario && DEAL_PATTERNS[currentScenario.dealCat];
+  const rule = window.RailShowdown && window.RailShowdown.SHOWDOWN_RULES[currentScenario.name];
+  showdownBoard = tableBoardCards.slice();
+  showdownBoard2 = tableBoard2Cards.slice();
+  if(!rule) return;
+  // Some quiz patterns stop before a full board (they end where the questions
+  // end). Top up from the retained deck purely for evaluation purposes.
+  while(rule.needsBoard && showdownBoard.length < rule.needsBoard && remainingDeck.length){
+    showdownBoard.push(remainingDeck.shift());
+  }
+  while(rule.needsBoard2 && showdownBoard2.length < rule.needsBoard2 && remainingDeck.length){
+    showdownBoard2.push(remainingDeck.shift());
+  }
+}
+
+function runShowdown(){
+  if(!window.RailShowdown || !currentScenario) return null;
+  completeBoardsForShowdown();
+  const players = [];
+  for(let i = 0; i < tableSeats; i++){
+    if(i === sitOutSeatIndex) continue;
+    const held = seatHoleCards[i] || [];
+    const pattern = DEAL_PATTERNS[currentScenario.dealCat];
+    const finalCount = pattern ? pattern.hole[pattern.hole.length - 1] : held.length;
+    if(finalCount > 0) players.push({ seat:i, cards: held.slice(0, finalCount) });
+  }
+  return window.RailShowdown.evaluateShowdown({
+    game: currentScenario,
+    players,
+    board: showdownBoard,
+    board2: showdownBoard2
+  });
+}
+
+function renderShowdown(){
+  progressFill.style.width = '100%';
+  showdownResult = runShowdown();
+
+  const hud = document.getElementById('dealerHud');
+  if(hud) hud.innerHTML = `<span class="hud-game">${currentScenario.name}</span><span class="hud-sep">\u00b7</span><span class="hud-task">Showdown</span>`;
+  showDealerCue('Showdown');
+
+  // Reveal every eligible player's cards face-up, and top up the board visually
+  // so what the trainee sees matches what was actually evaluated.
+  revealAllHands();
+
+  const qaColumn = document.getElementById('qaColumn');
+  if(!showdownResult || !showdownResult.ok){
+    const msg = showdownResult ? showdownResult.error : 'Showdown unavailable for this game.';
+    qaColumn.innerHTML = `
+      <div class="showdown-panel">
+        <div class="showdown-title">Showdown</div>
+        <div class="showdown-note">${msg}</div>
+        <button class="continue-hand-btn show" id="toSummaryBtn">Hand Complete</button>
+      </div>`;
+    document.getElementById('toSummaryBtn').addEventListener('click', () => renderSummary(true));
+    return;
+  }
+
+  const r = showdownResult;
+  let headline;
+  if(r.isScoop) headline = `SCOOP \u2014 PLAYER ${r.winners[0] + 1}`;
+  else if(r.hasTie && r.winners.length > 1 && r.sides.length === 1) headline = 'SPLIT \u2014 TIE';
+  else if(r.sides.length > 1) headline = 'SPLIT POT';
+  else headline = `WINNER \u2014 PLAYER ${r.winners[0] + 1}`;
+
+  const sideHtml = r.sides.map(side => {
+    if(side.winners.length === 0){
+      return `<div class="showdown-side">
+        <div class="showdown-side-label">${side.label}</div>
+        <div class="showdown-none">NO QUALIFYING ${side.label.toUpperCase().indexOf('LOW') !== -1 ? 'LOW' : 'HAND'}</div>
+      </div>`;
+    }
+    const winnerRows = side.winners.map(seat => {
+      const res = side.results.find(x => x.seat === seat);
+      return `<div class="showdown-winner-row">
+        <span class="showdown-seat">Player ${seat + 1}</span>
+        <span class="showdown-hand">${res.label}</span>
+      </div>`;
+    }).join('');
+    return `<div class="showdown-side">
+      <div class="showdown-side-label">${side.label}${side.winners.length > 1 ? ' \u2014 tie' : ''}</div>
+      ${winnerRows}
+    </div>`;
+  }).join('');
+
+  qaColumn.innerHTML = `
+    <div class="showdown-panel">
+      <div class="showdown-title">${headline}</div>
+      ${sideHtml}
+      <button class="continue-hand-btn show" id="toSummaryBtn">Push Pot \u2014 Hand Complete</button>
+    </div>`;
+
+  // Subtle seat emphasis on the winner(s)
+  r.winners.forEach(seat => {
+    if(seatEls[seat]) seatEls[seat].classList.add('showdown-winner');
+  });
+
+  document.getElementById('toSummaryBtn').addEventListener('click', () => {
+    showDealerCue('Push Pot');
+    renderSummary(true);
+  });
+}
+
+// Turns every eligible player's cards face-up and syncs the board to what was
+// actually evaluated. Card identity is never altered — only presentation.
+function revealAllHands(){
+  const pattern = currentScenario && DEAL_PATTERNS[currentScenario.dealCat];
+  if(!pattern) return;
+  const finalCount = pattern.hole[pattern.hole.length - 1];
+  for(let i = 0; i < tableSeats; i++){
+    if(i === sitOutSeatIndex) continue;
+    const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
+    if(!container) continue;
+    const held = (seatHoleCards[i] || []).slice(0, finalCount);
+    container.innerHTML = held.map(c => cardHtml(c, true)).join('');
+  }
+  const board1El = document.getElementById('boardRow1');
+  if(board1El && showdownBoard.length){
+    board1El.innerHTML = showdownBoard.map(c => cardHtml(c, false)).join('');
+  }
+  const board2El = document.getElementById('boardRow2');
+  if(board2El && showdownBoard2.length){
+    board2El.innerHTML = showdownBoard2.map(c => cardHtml(c, false)).join('');
+    board2El.style.display = 'flex';
+  }
 }
 
 function renderStepContent(step, tableIndex, isLastOfRun){
@@ -2512,6 +2719,20 @@ function handleAnswer(opt, optionList){
   }
 }
 
+// Compact showdown recap for the Hand Complete screen. Purely informational —
+// it never affects the dealer-decision scoring above it.
+function showdownSummaryHtml(){
+  if(!showdownResult || !showdownResult.ok) return '';
+  const lines = showdownResult.sides.map(side => {
+    if(side.winners.length === 0) return `${side.label} \u2014 none qualified`;
+    return `${side.label} \u2014 ` + side.winners.map(s => 'Player ' + (s + 1)).join(' & ');
+  });
+  return `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--brass-300);margin-top:10px;line-height:1.7;">
+    <div style="color:var(--slate-400);letter-spacing:0.1em;">SHOWDOWN</div>
+    ${lines.map(l => `<div>${l}</div>`).join('')}
+  </div>`;
+}
+
 function renderSummary(shouldRecord){
   progressFill.style.width = '100%';
   const steps = currentScenario.scenario;
@@ -2538,6 +2759,7 @@ function renderSummary(shouldRecord){
       <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate-400);margin-top:8px;">
         Correct: ${correctCount} &nbsp;\u00b7&nbsp; Mistakes: ${steps.length - correctCount} &nbsp;\u00b7&nbsp; Accuracy: ${accuracy}%
       </div>
+      ${showdownSummaryHtml()}
       <div class="summary-msg">${msg}</div>
       <div class="summary-actions">
         <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
