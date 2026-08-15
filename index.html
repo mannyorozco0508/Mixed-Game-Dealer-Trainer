@@ -652,12 +652,16 @@
   /* Cards physically travel from the dealer's position out to their seat —
      --deal-dx/--deal-dy are set per-card in JS from real measured pixel
      positions, so this works correctly at any screen size. */
+  /* Cards are inserted into the DOM only at the moment they land, so this
+     animation is purely the pitch-and-settle motion — nothing is being faded
+     in over a pre-existing slot. Opacity resolves early so the card reads as
+     one solid object arriving, not a ghost materialising. */
   @keyframes cardDeal{
     from{
-      transform: translate(var(--deal-dx, 0px), var(--deal-dy, 0px)) scale(0.55) rotate(var(--deal-rot, 0deg));
-      opacity: 0;
+      transform: translate(var(--deal-dx, 0px), var(--deal-dy, 0px)) scale(0.6) rotate(var(--deal-rot, 0deg));
+      opacity: 0.35;
     }
-    60%{ opacity: 1; }
+    35%{ opacity: 1; }
     to{
       transform: translate(0, 0) scale(1) rotate(0deg);
       opacity: 1;
@@ -719,6 +723,12 @@
     flex-wrap:wrap;
     max-width:88px;
   }
+  /* Hands of 5+ cards fan with controlled overlap instead of wrapping into a
+     tall block — keeps seven-card stud readable without shrinking the cards.
+     Ranks stay visible because only the left edge of each card is covered. */
+  .seat-cards:has(.mini-card:nth-child(5)){ gap:0; }
+  .seat-cards:has(.mini-card:nth-child(5)) .mini-card + .mini-card{ margin-left:-4px; }
+  .seat-cards:has(.mini-card:nth-child(7)) .mini-card + .mini-card{ margin-left:-6px; }
   .mini-card{
     width:15px;
     height:21px;
@@ -2040,6 +2050,19 @@ let seatEls = [];             // persistent seat-pos DOM node per seat, built on
 let dealerBuiltForHand = false;
 let prevHoleCount = 0, prevUpCount = 0, prevBoardCount = 0, prevBoard2Count = 0;
 let burnPileCount = 0;
+// --- Progressive dealing state ---
+// seatHoleCards holds the LOGICAL hand (complete the moment the deck is cut).
+// seatVisibleCardCounts tracks how many of those cards have actually been
+// pitched and rendered so far. The DOM only ever contains cards that have
+// genuinely landed — nothing is pre-rendered and faded in.
+let seatVisibleCardCounts = [];
+let boardVisibleCount = 0;
+let board2VisibleCount = 0;
+// Bumped on every new hand / exit. Pending deal timers check this before
+// touching the DOM, so a redeal or exit mid-animation can't have stale
+// callbacks dropping cards onto a fresh table.
+let dealGeneration = 0;
+let pendingDealTimers = [];
 // Cards left in the deck after dealing. Retained because some games' quiz
 // DEAL_PATTERNS intentionally stop before a full board (they end where the
 // questions end, not where a real hand ends) — the showdown needs to complete
@@ -2131,6 +2154,13 @@ function buildTable(game, isRedeal){
   prevHoleCount = 0; prevUpCount = 0; prevBoardCount = 0; prevBoard2Count = 0;
   burnPileCount = 0;
   dealerBuiltForHand = false;
+
+  // Cancel anything still in flight from a previous hand and start a new
+  // generation, so no stale timer can drop a card onto this fresh table.
+  cancelPendingDeals();
+  seatVisibleCardCounts = new Array(numPlayers).fill(0);
+  boardVisibleCount = 0;
+  board2VisibleCount = 0;
 
   return numPlayers;
 }
@@ -2264,7 +2294,10 @@ function updateTableView(stepIndex){
   const targetUp = (pattern.upCount && pattern.upCount[clampedIndex]) || 0;
   const targetBoard = pattern.board[clampedIndex];
   const targetBoard2 = pattern.board2 ? pattern.board2[clampedIndex] : 0;
-  const DEAL_STAGGER_MS = 100; // slow enough to read as one-at-a-time, not a blur
+  // Time between individual card pitches. 130ms reads clearly as one-at-a-time
+  // without dragging; large deals (7-handed stud) tighten up so a 40+ card
+  // street doesn't become a waiting game.
+  const DEAL_STAGGER_MS = 130;
 
   const holeTotalDelta = targetHole - prevHoleCount;
   const holeUpDelta = targetUp - prevUpCount;
@@ -2311,6 +2344,7 @@ function updateTableView(stepIndex){
       for(let r = 0; r < removeCount && cards.length - r - 1 >= 0; r++){
         cards[cards.length - r - 1].remove();
       }
+      seatVisibleCardCounts[i] = Math.max(0, (seatVisibleCardCounts[i] || 0) - removeCount);
     }
     prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
     return;
@@ -2333,37 +2367,108 @@ function updateTableView(stepIndex){
   }
   const maxNewPerSeat = Math.max(0, ...perSeatNewCards.map(a => a.length));
 
-  let dealCounter = 0;
+  // Build the pitch queue: the exact physical order cards leave the dealer's
+  // hand — one card to each active seat, then around again for the next card.
+  const pitchQueue = [];
   for(let round = 0; round < maxNewPerSeat; round++){
     for(let i = 0; i < tableSeats; i++){
       const card = perSeatNewCards[i][round];
       if(card === undefined) continue;
-      const slotIndex = prevHoleCount + round; // this card's fixed position in the hand
-      const faceUp = slotIndex < targetUp;
+      const slotIndex = prevHoleCount + round; // fixed position in the hand
       const angle = seatAngle(i, tableSeats);
       const rad = angle * Math.PI / 180;
       const seatXPct = 50 + 37 * Math.cos(rad);
       const seatYPct = 50 + 40 * Math.sin(rad);
-      const dx = dealerPxX - (tableW * seatXPct / 100);
-      const dy = dealerPxY - (tableH * seatYPct / 100);
-      const delay = dealCounter * DEAL_STAGGER_MS;
-      dealCounter++;
-
-      const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
-      if(!container) continue;
-      if(faceUp){
-        container.insertAdjacentHTML('beforeend', cardHtml(card, true, delay, dx, dy));
-      } else {
-        container.insertAdjacentHTML('beforeend',
-          `<span class="mini-card face-down" style="animation-delay:${delay}ms; --deal-dx:${dx}px; --deal-dy:${dy}px;"></span>`);
-      }
+      pitchQueue.push({
+        kind: 'seat',
+        seat: i,
+        card,
+        faceUp: slotIndex < targetUp,
+        dx: dealerPxX - (tableW * seatXPct / 100),
+        dy: dealerPxY - (tableH * seatYPct / 100)
+      });
     }
   }
 
-  // Flip pass: bring already-placed cards in line with this street's up-count.
-  // (In stud, an earlier down card is never revealed later, so in practice this
-  // only ever flips cards that were just dealt in the loop above — but running
-  // it keeps the rendered table exactly consistent with the pattern data.)
+  // Board cards go out after the player cards, in board order.
+  if(boardDelta > 0){
+    tableBoardCards.slice(prevBoardCount, targetBoard).forEach(c => {
+      pitchQueue.push({ kind:'board1', card:c, dx:0, dy: dealerPxY - (tableH * 0.38) });
+    });
+  }
+  if(pattern.board2 && board2Delta > 0){
+    tableBoard2Cards.slice(prevBoard2Count, targetBoard2).forEach(c => {
+      pitchQueue.push({ kind:'board2', card:c, dx:0, dy: dealerPxY - (tableH * 0.62) });
+    });
+  }
+
+  // Pitch them one at a time. Each card is inserted into the DOM only at the
+  // moment it lands — nothing is pre-rendered, so seats genuinely grow from
+  // empty and no card ever occupies layout space before it arrives.
+  const generation = dealGeneration;
+  // For big deals, tighten the gap so a 7-handed 7-card street stays brisk.
+  const stagger = pitchQueue.length > 14
+    ? Math.max(70, DEAL_STAGGER_MS - (pitchQueue.length - 14) * 3)
+    : DEAL_STAGGER_MS;
+  pitchQueue.forEach((pitch, idx) => {
+    const fire = () => {
+      if(generation !== dealGeneration) return; // stale hand — drop it
+      placePitchedCard(pitch);
+      // Once the last card of this street lands, reconcile face-up/down state.
+      if(idx === pitchQueue.length - 1) applyFlipState(targetUp);
+    };
+    if(idx === 0){
+      fire(); // first card goes immediately, no dead air
+    } else {
+      pendingDealTimers.push(setTimeout(fire, idx * stagger));
+    }
+  });
+  if(pitchQueue.length === 0) applyFlipState(targetUp);
+
+  prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
+}
+
+// Cancels every in-flight pitch and invalidates their generation.
+function cancelPendingDeals(){
+  dealGeneration++;
+  pendingDealTimers.forEach(t => clearTimeout(t));
+  pendingDealTimers = [];
+}
+
+// Inserts a single pitched card into the DOM at the moment it lands.
+function placePitchedCard(pitch){
+  const animStyle = `--deal-dx:${pitch.dx}px; --deal-dy:${pitch.dy}px;`;
+  if(pitch.kind === 'seat'){
+    const container = seatEls[pitch.seat] && seatEls[pitch.seat].querySelector('.seat-cards');
+    if(!container) return;
+    if(pitch.faceUp){
+      container.insertAdjacentHTML('beforeend', cardHtml(pitch.card, true, 0, pitch.dx, pitch.dy));
+    } else {
+      container.insertAdjacentHTML('beforeend', `<span class="mini-card face-down" style="${animStyle}"></span>`);
+    }
+    seatVisibleCardCounts[pitch.seat] = (seatVisibleCardCounts[pitch.seat] || 0) + 1;
+    return;
+  }
+  const el = document.getElementById(pitch.kind === 'board1' ? 'boardRow1' : 'boardRow2');
+  if(!el) return;
+  el.insertAdjacentHTML('beforeend', cardHtml(pitch.card, false, 0, pitch.dx, pitch.dy));
+  if(pitch.kind === 'board1') boardVisibleCount++;
+  else { board2VisibleCount++; el.style.display = 'flex'; }
+}
+
+// Immediately finishes any in-flight deal, so showdown always evaluates and
+// displays a fully-dealt table regardless of animation progress.
+function flushPendingDeals(){
+  pendingDealTimers.forEach(t => clearTimeout(t));
+  pendingDealTimers = [];
+}
+
+// Brings already-placed cards in line with a street's up-count. In stud an
+// earlier down card is never revealed later, so in practice this only ever
+// affects cards from the current street — but running it keeps the rendered
+// table exactly consistent with the pattern data. Presentation only: card
+// identity in seatHoleCards is never touched.
+function applyFlipState(targetUp){
   for(let i = 0; i < tableSeats; i++){
     if(sitOutSeatIndex === i) continue;
     const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
@@ -2384,27 +2489,6 @@ function updateTableView(stepIndex){
       }
     });
   }
-  const boardDelayStart = dealCounter * DEAL_STAGGER_MS;
-
-  if(boardDelta > 0 && board1El){
-    const board1Dx = 0;
-    const board1Dy = dealerPxY - (tableH * 0.38);
-    const newBoardCards = tableBoardCards.slice(prevBoardCount, targetBoard);
-    newBoardCards.forEach((c, idx) => {
-      board1El.insertAdjacentHTML('beforeend', cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board1Dx, board1Dy));
-    });
-  }
-  if(pattern.board2 && board2Delta > 0 && board2El){
-    const board2Dx = 0;
-    const board2Dy = dealerPxY - (tableH * 0.62);
-    const newBoard2Cards = tableBoard2Cards.slice(prevBoard2Count, targetBoard2);
-    newBoard2Cards.forEach((c, idx) => {
-      board2El.insertAdjacentHTML('beforeend', cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board2Dx, board2Dy));
-    });
-    board2El.style.display = 'flex';
-  }
-
-  prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
 }
 
 let currentCatTag = '';
@@ -2547,6 +2631,9 @@ function runShowdown(){
 
 function renderShowdown(){
   progressFill.style.width = '100%';
+  // Any cards still mid-pitch are finished instantly — showdown must always
+  // evaluate and display a complete table regardless of animation progress.
+  flushPendingDeals();
   showdownResult = runShowdown();
 
   const hud = document.getElementById('dealerHud');
@@ -2627,6 +2714,7 @@ function revealAllHands(){
     if(!container) continue;
     const held = (seatHoleCards[i] || []).slice(0, finalCount);
     container.innerHTML = held.map(c => cardHtml(c, true)).join('');
+    seatVisibleCardCounts[i] = held.length;
   }
   const board1El = document.getElementById('boardRow1');
   if(board1El && showdownBoard.length){
@@ -2792,6 +2880,7 @@ function renderSummary(shouldRecord){
 }
 
 function closeScenario(){
+  cancelPendingDeals(); // no stale pitches into a closed or next table
   overlay.classList.remove('open');
   document.body.style.overflow = '';
 }
