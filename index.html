@@ -826,6 +826,144 @@
     .seat-label{ font-size:11px; padding:4px 8px; }
     .btn-badge{ width:17px; height:17px; font-size:10px; }
   }
+
+  /* ================= DEALER BOX EXPERIENCE (additive — does not
+     modify any existing rule above) ================= */
+  .dealer-box-col{ display:flex; flex-direction:column; }
+  .dealer-hud{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.04em;
+    color:var(--ivory-200);
+    background:var(--felt-800);
+    border:1px solid rgba(201,162,39,0.3);
+    border-radius:2px;
+    padding:8px 12px;
+    margin-bottom:8px;
+  }
+  .dealer-hud .hud-game{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:13px;
+    color:var(--brass-300);
+    text-transform:none;
+    letter-spacing:0;
+  }
+  .dealer-hud .hud-sep{ color:var(--slate-400); }
+  .dealer-hud .hud-task{
+    margin-left:auto;
+    color:var(--chip-blue);
+    font-weight:600;
+  }
+  .street-indicator{
+    display:flex;
+    gap:4px;
+    overflow-x:auto;
+    padding-bottom:2px;
+    margin-bottom:8px;
+    scrollbar-width:none;
+  }
+  .street-indicator::-webkit-scrollbar{ display:none; }
+  .street-pill{
+    flex:0 0 auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--slate-400);
+    background:var(--felt-800);
+    border:1px solid rgba(237,230,214,0.12);
+    border-radius:2px;
+    padding:3px 8px;
+    white-space:nowrap;
+  }
+  .street-pill.active{
+    color:var(--felt-900);
+    background:var(--brass-500);
+    border-color:var(--brass-500);
+    font-weight:700;
+  }
+  .street-pill.done{
+    color:var(--brass-300);
+    border-color:rgba(201,162,39,0.3);
+  }
+  .dealer-cue{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass-300);
+    min-height:18px;
+    margin-top:6px;
+    opacity:0;
+  }
+  .dealer-cue.show{
+    animation:cueFade 1.6s ease forwards;
+  }
+  @keyframes cueFade{
+    0%{ opacity:0; transform:translateY(-2px); }
+    15%{ opacity:1; transform:translateY(0); }
+    75%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+  .burn-pile{
+    position:absolute;
+    left:14%;
+    top:78%;
+    display:flex;
+  }
+  .burn-pile .mini-card.face-down{
+    width:13px;
+    height:19px;
+    margin-left:-9px;
+    animation:none;
+  }
+  .burn-pile .mini-card.face-down:first-child{ margin-left:0; }
+  .chip-stack{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8.5px;
+    color:var(--brass-300);
+    margin-top:2px;
+  }
+  .player-badge-row{
+    display:flex;
+    gap:2px;
+    justify-content:center;
+    margin-top:2px;
+  }
+  .pos-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:7px;
+    letter-spacing:0.03em;
+    padding:1px 3px;
+    border-radius:2px;
+    border:1px solid rgba(237,230,214,0.2);
+    color:var(--ivory-200);
+  }
+  .pos-badge.sb{ border-color:rgba(62,110,147,0.6); color:#8FB4D4; }
+  .pos-badge.bb{ border-color:var(--chip-red); color:#E38A90; }
+  .continue-hand-btn{
+    display:none;
+    margin-top:14px;
+    background:var(--brass-500);
+    color:var(--felt-900);
+    border:none;
+    border-radius:2px;
+    padding:13px 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+    width:100%;
+  }
+  .continue-hand-btn.show{ display:block; }
 </style>
 </head>
 <body>
@@ -1805,6 +1943,13 @@ let seatHoleCards = [];
 let tableBoardCards = [];
 let tableBoard2Cards = [];
 
+// --- Dealer Box additions (all additive, none of the above is touched) ---
+let seatChips = [];           // cosmetic-only chip stack per seat, presentation data
+let seatEls = [];             // persistent seat-pos DOM node per seat, built once per hand
+let dealerBuiltForHand = false;
+let prevHoleCount = 0, prevUpCount = 0, prevBoardCount = 0, prevBoard2Count = 0;
+let burnPileCount = 0;
+
 // Games where a dealer button rotates player-to-player each hand.
 // 7-card stud formats have no button — bring-in determines action instead.
 const BUTTON_DEALCATS = new Set(['draw4','draw5','drawmaha','doubleBoard','pineapple','crazyPineapple','holdem']);
@@ -1868,6 +2013,21 @@ function buildTable(game, isRedeal){
       tableBoard2Cards = deck.splice(0, board2Max);
     }
   }
+
+  // Cosmetic-only chip stacks (presentation data — NOT wired to any real
+  // betting math, per instruction). Regenerated fresh each hand.
+  seatChips = [];
+  for(let i = 0; i < numPlayers; i++){
+    seatChips.push(i === sitOutSeatIndex ? 0 : 200 + Math.floor(Math.random() * 12) * 50);
+  }
+
+  // A brand new hand always starts with an empty table — reset the
+  // incremental-dealing tracker and burn pile so the next updateTableView()
+  // call deals fresh from zero instead of comparing against the last hand.
+  prevHoleCount = 0; prevUpCount = 0; prevBoardCount = 0; prevBoard2Count = 0;
+  burnPileCount = 0;
+  dealerBuiltForHand = false;
+
   return numPlayers;
 }
 
@@ -1926,65 +2086,15 @@ soundToggleBtn.addEventListener('click', () => {
   updateSoundToggleLabel();
 });
 
-function renderTableView(stepIndex){
-  const pokerTable = document.getElementById('pokerTable');
-  if(!pokerTable) return;
-  const pattern = currentScenario && currentScenario.dealCat ? DEAL_PATTERNS[currentScenario.dealCat] : null;
-  if(!pattern){
-    pokerTable.style.display = 'none';
-    return;
-  }
-  pokerTable.style.display = 'block';
-  playDealSound();
-
+// Builds the seat/dealer DOM ONCE per hand. Card containers start empty —
+// updateTableView() fills them in incrementally as streets progress, so
+// cards placed on an earlier street are never touched again (no "redeal").
+function buildSeatDom(){
   const seatsEl = document.getElementById('seatsEl');
-  const board1El = document.getElementById('boardRow1');
-  const board2El = document.getElementById('boardRow2');
-
-  const clampedIndex = Math.min(stepIndex, pattern.hole.length - 1);
-  const holeCount = pattern.hole[clampedIndex];
-  const upCount = (pattern.upCount && pattern.upCount[clampedIndex]) || 0;
-  const boardCount = pattern.board[clampedIndex];
-  const DEAL_STAGGER_MS = 100; // slow enough to read as one-at-a-time, not a blur
-
-  // Measure the ACTUAL rendered table so travel distances are correct at any
-  // screen size (phone, iPad, desktop all use different card/table dimensions).
-  const tableW = pokerTable.clientWidth;
-  const tableH = pokerTable.clientHeight;
-  const dealerPxX = tableW * 0.50;
-  const dealerPxY = tableH * 0.92;
-
-  // Pre-compute each active seat's cards + its real pixel position before
-  // laying anything out, so we can assign delays in true round-robin deal order:
-  // one card to every seat, then the next card to every seat, same as a real deal.
-  const perSeatCards = [];
-  const perSeatOffset = []; // {dx, dy} — how far each seat's cards travel from the dealer
-  for(let i = 0; i < tableSeats; i++){
-    perSeatCards.push(sitOutSeatIndex === i ? [] : (seatHoleCards[i] || []).slice(0, holeCount));
-    const angle = seatAngle(i, tableSeats);
-    const rad = angle * Math.PI / 180;
-    const seatXPct = 50 + 37 * Math.cos(rad);
-    const seatYPct = 50 + 40 * Math.sin(rad);
-    perSeatOffset.push({
-      dx: dealerPxX - (tableW * seatXPct / 100),
-      dy: dealerPxY - (tableH * seatYPct / 100)
-    });
-  }
-  const perSeatDelay = perSeatCards.map(() => []);
-  let dealCounter = 0;
-  for(let round = 0; round < holeCount; round++){
-    for(let i = 0; i < tableSeats; i++){
-      if(perSeatCards[i][round] !== undefined){
-        perSeatDelay[i][round] = dealCounter * DEAL_STAGGER_MS;
-        dealCounter++;
-      }
-    }
-  }
-  const boardDelayStart = dealCounter * DEAL_STAGGER_MS;
-
+  if(!seatsEl) return;
   seatsEl.innerHTML = '';
+  seatEls = [];
 
-  // Fixed dealer (operator) position — bottom of the table, no cards.
   const dealerDiv = document.createElement('div');
   dealerDiv.className = 'seat-pos dealer-pos';
   dealerDiv.style.left = '50%';
@@ -1998,52 +2108,206 @@ function renderTableView(stepIndex){
     const x = 50 + 37 * Math.cos(rad);
     const y = 50 + 40 * Math.sin(rad);
     const onButton = buttonSeatIndex !== null && i === buttonSeatIndex;
+    const isSB = buttonSeatIndex !== null && i === (buttonSeatIndex + 1) % tableSeats;
+    const isBB = buttonSeatIndex !== null && i === (buttonSeatIndex + 2) % tableSeats;
     const sittingOut = sitOutSeatIndex === i;
+
     const seatDiv = document.createElement('div');
     seatDiv.className = 'seat-pos' + (onButton ? ' has-button' : '') + (sittingOut ? ' sitting-out' : '');
     seatDiv.style.left = x + '%';
     seatDiv.style.top = y + '%';
 
-    let cardsHtml = '';
-    if(!sittingOut){
-      const seatCards = perSeatCards[i];
-      const { dx, dy } = perSeatOffset[i];
-      const visibleUp = Math.min(upCount, seatCards.length);
-      const upCards = seatCards.slice(0, visibleUp).map((c, idx) => cardHtml(c, true, perSeatDelay[i][idx], dx, dy));
-      const downCards = seatCards.slice(visibleUp).map((c, idx) => {
-        const delay = perSeatDelay[i][visibleUp + idx];
-        return `<span class="mini-card face-down" style="animation-delay:${delay}ms; --deal-dx:${dx}px; --deal-dy:${dy}px;"></span>`;
-      });
-      cardsHtml = upCards.concat(downCards).join('');
-    }
+    const posBadges = [];
+    if(onButton) posBadges.push('<span class="btn-badge">D</span>');
+    if(isSB) posBadges.push('<span class="pos-badge sb">SB</span>');
+    if(isBB) posBadges.push('<span class="pos-badge bb">BB</span>');
+
     const label = sittingOut
-      ? `Seat ${i+1} <span style="font-size:8px;">(sitting out)</span>`
-      : `Seat ${i+1}${onButton ? ' <span class="btn-badge">D</span>' : ''}`;
-    seatDiv.innerHTML = `<div class="seat-label">${label}</div><div class="seat-cards">${cardsHtml}</div>`;
+      ? `Player ${i+1} <span style="font-size:8px;">(sitting out)</span>`
+      : `Player ${i+1}`;
+    const chipLabel = sittingOut ? '' : `<div class="chip-stack">$${seatChips[i]}</div>`;
+    const badgeRow = posBadges.length ? `<div class="player-badge-row">${posBadges.join('')}</div>` : '';
+
+    seatDiv.innerHTML = `<div class="seat-label">${label}</div><div class="seat-cards" data-seat="${i}"></div>${badgeRow}${chipLabel}`;
     seatsEl.appendChild(seatDiv);
+    seatEls.push(seatDiv);
+  }
+  dealerBuiltForHand = true;
+}
+
+// Incrementally updates the table for the given step: adds only the NEW
+// cards revealed since the last render (or removes cards on a discard),
+// using the same round-robin dealing order and real measured travel
+// distances as before. Cards already on the table are never re-rendered.
+function updateTableView(stepIndex){
+  const pokerTable = document.getElementById('pokerTable');
+  if(!pokerTable) return;
+  const pattern = currentScenario && currentScenario.dealCat ? DEAL_PATTERNS[currentScenario.dealCat] : null;
+  if(!pattern){
+    pokerTable.style.display = 'none';
+    return;
+  }
+  pokerTable.style.display = 'block';
+  if(!dealerBuiltForHand) buildSeatDom();
+
+  const seatsEl = document.getElementById('seatsEl');
+  const board1El = document.getElementById('boardRow1');
+  const board2El = document.getElementById('boardRow2');
+  const burnPileEl = document.getElementById('burnPile');
+
+  const clampedIndex = Math.min(stepIndex, pattern.hole.length - 1);
+  const targetHole = pattern.hole[clampedIndex];
+  const targetUp = (pattern.upCount && pattern.upCount[clampedIndex]) || 0;
+  const targetBoard = pattern.board[clampedIndex];
+  const targetBoard2 = pattern.board2 ? pattern.board2[clampedIndex] : 0;
+  const DEAL_STAGGER_MS = 100; // slow enough to read as one-at-a-time, not a blur
+
+  const holeTotalDelta = targetHole - prevHoleCount;
+  const holeUpDelta = targetUp - prevUpCount;
+  const holeDownDelta = holeTotalDelta - holeUpDelta;
+  const boardDelta = targetBoard - prevBoardCount;
+  const board2Delta = targetBoard2 - prevBoard2Count;
+
+  // A genuine new street is being dealt whenever something is being ADDED —
+  // that's exactly when a real burn happens (never on the very first deal,
+  // never on a pure discard). Approximate but honest: one pile-card per
+  // street-with-new-cards, not tracked with full per-street precision.
+  const isFreshDeal = (prevHoleCount + prevBoardCount + prevBoard2Count) > 0;
+  if(isFreshDeal && (holeTotalDelta > 0 || boardDelta > 0 || board2Delta > 0)){
+    burnPileCount++;
+  }
+  if(burnPileEl){
+    burnPileEl.innerHTML = Array(Math.min(burnPileCount, 6)).fill('<span class="mini-card face-down"></span>').join('');
   }
 
-  const board1Dx = dealerPxX - (tableW * 0.50);
-  const board1Dy = dealerPxY - (tableH * 0.38);
-  const boardCards1 = tableBoardCards.slice(0, boardCount);
-  board1El.innerHTML = boardCards1.map((c, idx) =>
-    cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board1Dx, board1Dy)).join('');
-  if(pattern.board2){
-    const board2Dx = dealerPxX - (tableW * 0.50);
-    const board2Dy = dealerPxY - (tableH * 0.62);
-    const board2Count = pattern.board2[clampedIndex];
-    const boardCards2 = tableBoard2Cards.slice(0, board2Count);
-    board2El.innerHTML = boardCards2.map((c, idx) =>
-      cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board2Dx, board2Dy)).join('');
-    board2El.style.display = 'flex';
-  } else {
-    board2El.innerHTML = '';
-    board2El.style.display = 'none';
+  if(holeTotalDelta === 0 && boardDelta === 0 && board2Delta === 0){
+    // Nothing changed (a pure "what do you do next" question with no new
+    // cards) — no deal sound, no animation, table stays exactly as-is.
+    prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
+    return;
   }
+  playDealSound();
+
+  const tableW = pokerTable.clientWidth;
+  const tableH = pokerTable.clientHeight;
+  const dealerPxX = tableW * 0.50;
+  const dealerPxY = tableH * 0.92;
+
+  // --- Handle DISCARDS first (negative delta) — remove cards, prefer
+  // removing from the face-down portion, matching real discard procedure. ---
+  if(holeTotalDelta < 0){
+    const removeCount = -holeTotalDelta;
+    for(let i = 0; i < tableSeats; i++){
+      if(sitOutSeatIndex === i) continue;
+      const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
+      if(!container) continue;
+      const cards = container.querySelectorAll('.mini-card');
+      // remove from the end (down cards were appended after up cards, so
+      // the end of the list is the down portion for every game that discards)
+      for(let r = 0; r < removeCount && cards.length - r - 1 >= 0; r++){
+        cards[cards.length - r - 1].remove();
+      }
+    }
+    prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
+    return;
+  }
+
+  // --- Otherwise, deal the new cards in true round-robin order (one new
+  // card to every active seat, then the next new card to every seat).
+  //
+  // IMPORTANT: "new" is determined ONLY by total card count. A card's slot in
+  // the hand is fixed the moment it's dealt. Whether a given slot shows face-up
+  // or face-down is a separate question, handled by the flip pass below —
+  // deriving "new" from the up-count and down-count separately double-deals
+  // cards on stud streets where both counts rise at once (caught by the
+  // dealer-box integration test on Super Stud step 5).
+  const perSeatNewCards = [];
+  for(let i = 0; i < tableSeats; i++){
+    if(sitOutSeatIndex === i){ perSeatNewCards.push([]); continue; }
+    const seatCards = seatHoleCards[i] || [];
+    perSeatNewCards.push(seatCards.slice(prevHoleCount, targetHole));
+  }
+  const maxNewPerSeat = Math.max(0, ...perSeatNewCards.map(a => a.length));
+
+  let dealCounter = 0;
+  for(let round = 0; round < maxNewPerSeat; round++){
+    for(let i = 0; i < tableSeats; i++){
+      const card = perSeatNewCards[i][round];
+      if(card === undefined) continue;
+      const slotIndex = prevHoleCount + round; // this card's fixed position in the hand
+      const faceUp = slotIndex < targetUp;
+      const angle = seatAngle(i, tableSeats);
+      const rad = angle * Math.PI / 180;
+      const seatXPct = 50 + 37 * Math.cos(rad);
+      const seatYPct = 50 + 40 * Math.sin(rad);
+      const dx = dealerPxX - (tableW * seatXPct / 100);
+      const dy = dealerPxY - (tableH * seatYPct / 100);
+      const delay = dealCounter * DEAL_STAGGER_MS;
+      dealCounter++;
+
+      const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
+      if(!container) continue;
+      if(faceUp){
+        container.insertAdjacentHTML('beforeend', cardHtml(card, true, delay, dx, dy));
+      } else {
+        container.insertAdjacentHTML('beforeend',
+          `<span class="mini-card face-down" style="animation-delay:${delay}ms; --deal-dx:${dx}px; --deal-dy:${dy}px;"></span>`);
+      }
+    }
+  }
+
+  // Flip pass: bring already-placed cards in line with this street's up-count.
+  // (In stud, an earlier down card is never revealed later, so in practice this
+  // only ever flips cards that were just dealt in the loop above — but running
+  // it keeps the rendered table exactly consistent with the pattern data.)
+  for(let i = 0; i < tableSeats; i++){
+    if(sitOutSeatIndex === i) continue;
+    const container = seatEls[i] && seatEls[i].querySelector('.seat-cards');
+    if(!container) continue;
+    const seatCards = seatHoleCards[i] || [];
+    Array.from(container.children).forEach((el, idx) => {
+      const shouldBeUp = idx < targetUp;
+      const isUp = !el.classList.contains('face-down');
+      if(shouldBeUp && !isUp && seatCards[idx]){
+        const c = seatCards[idx];
+        el.classList.remove('face-down');
+        el.textContent = c.r + c.s;
+        if(c.c === 'red') el.classList.add('red');
+      } else if(!shouldBeUp && isUp){
+        el.classList.add('face-down');
+        el.classList.remove('red');
+        el.textContent = '';
+      }
+    });
+  }
+  const boardDelayStart = dealCounter * DEAL_STAGGER_MS;
+
+  if(boardDelta > 0 && board1El){
+    const board1Dx = 0;
+    const board1Dy = dealerPxY - (tableH * 0.38);
+    const newBoardCards = tableBoardCards.slice(prevBoardCount, targetBoard);
+    newBoardCards.forEach((c, idx) => {
+      board1El.insertAdjacentHTML('beforeend', cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board1Dx, board1Dy));
+    });
+  }
+  if(pattern.board2 && board2Delta > 0 && board2El){
+    const board2Dx = 0;
+    const board2Dy = dealerPxY - (tableH * 0.62);
+    const newBoard2Cards = tableBoard2Cards.slice(prevBoard2Count, targetBoard2);
+    newBoard2Cards.forEach((c, idx) => {
+      board2El.insertAdjacentHTML('beforeend', cardHtml(c, false, boardDelayStart + idx * DEAL_STAGGER_MS, board2Dx, board2Dy));
+    });
+    board2El.style.display = 'flex';
+  }
+
+  prevHoleCount = targetHole; prevUpCount = targetUp; prevBoardCount = targetBoard; prevBoard2Count = targetBoard2;
 }
+
+let currentCatTag = '';
 
 function startScenario(game, catTag){
   currentScenario = game;
+  currentCatTag = catTag;
   stepIndex = 0;
   correctCount = 0;
   missedSteps = [];
@@ -2056,9 +2320,64 @@ function startScenario(game, catTag){
   if(activeCard){ activeCard.classList.remove('active'); activeCard = null; }
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  renderHandShell();
   renderStep();
 }
 
+// Builds the persistent hand shell ONCE per hand — the dealer HUD, street
+// indicator, and poker table all stay in the DOM across every street.
+// Only renderStepContent's qa-column gets swapped per step from here on,
+// so the table is never destroyed/rebuilt mid-hand.
+function renderHandShell(){
+  scenarioBody.innerHTML = `
+    <div class="landscape-split">
+      <div class="dealer-box-col">
+        <div class="dealer-hud" id="dealerHud"></div>
+        <div class="street-indicator" id="streetIndicator"></div>
+        <div class="poker-table" id="pokerTable">
+          <div class="table-oval"></div>
+          <div class="burn-pile" id="burnPile"></div>
+          <div class="board-row board1" id="boardRow1"></div>
+          <div class="board-row board2" id="boardRow2"></div>
+          <div id="seatsEl"></div>
+        </div>
+        <div class="dealer-cue" id="dealerCue"></div>
+      </div>
+      <div class="qa-column" id="qaColumn"></div>
+    </div>
+  `;
+}
+
+function updateDealerHud(step){
+  const hud = document.getElementById('dealerHud');
+  if(!hud || !currentScenario) return;
+  const activeCount = sitOutSeatIndex !== null ? tableSeats - 1 : tableSeats;
+  hud.innerHTML = `
+    <span class="hud-game">${currentScenario.name}</span>
+    <span class="hud-sep">\u00b7</span>
+    <span>Players: ${activeCount}</span>
+    <span class="hud-task">${reviewMode ? 'Reviewing' : 'Dealer Decision Required'}</span>
+  `;
+}
+
+function updateStreetIndicator(currentIndex){
+  const el = document.getElementById('streetIndicator');
+  if(!el || !currentScenario) return;
+  const streets = currentScenario.scenario.map(s => s.street);
+  el.innerHTML = streets.map((s, i) => {
+    const cls = i === currentIndex ? 'active' : (i < currentIndex ? 'done' : '');
+    return `<span class="street-pill ${cls}">${s}</span>`;
+  }).join('');
+}
+
+function showDealerCue(text){
+  const cue = document.getElementById('dealerCue');
+  if(!cue) return;
+  cue.classList.remove('show');
+  void cue.offsetWidth; // force reflow so the animation restarts cleanly
+  cue.textContent = text;
+  cue.classList.add('show');
+}
 
 function renderStep(){
   const steps = currentScenario.scenario;
@@ -2088,28 +2407,21 @@ function renderStepContent(step, tableIndex, isLastOfRun){
   const opts = step.options.map((o, i) => ({...o, origIndex:i}))
     .sort(() => Math.random() - 0.5);
 
-  scenarioBody.innerHTML = `
+  const qaColumn = document.getElementById('qaColumn');
+  qaColumn.innerHTML = `
     ${reviewMode ? '<div class="review-tag">Reviewing a missed street</div>' : ''}
-    <div class="landscape-split">
-      <div class="poker-table" id="pokerTable">
-        <div class="table-oval"></div>
-        <div class="board-row board1" id="boardRow1"></div>
-        <div class="board-row board2" id="boardRow2"></div>
-        <div id="seatsEl"></div>
-      </div>
-      <div class="qa-column">
-        <div class="street-tag">Street: ${step.street}</div>
-        <div class="scenario-prompt">${step.prompt}</div>
-        <div class="option-list" id="optionList"></div>
-        <div class="feedback-box" id="feedbackBox">
-          <span class="feedback-label" id="feedbackLabel"></span>
-          <span id="feedbackText"></span>
-        </div>
-        <button class="next-btn" id="nextBtn">${isLastOfRun ? (reviewMode ? 'Back to Results' : 'See Results') : 'Next Street'}</button>
-      </div>
+    <div class="scenario-prompt">${step.prompt}</div>
+    <div class="option-list" id="optionList"></div>
+    <div class="feedback-box" id="feedbackBox">
+      <span class="feedback-label" id="feedbackLabel"></span>
+      <span id="feedbackText"></span>
     </div>
+    <button class="continue-hand-btn" id="continueHandBtn">${isLastOfRun ? (reviewMode ? 'Back to Results' : 'See Results') : 'Continue Hand'}</button>
   `;
-  renderTableView(tableIndex);
+  updateTableView(tableIndex);
+  updateDealerHud(step);
+  updateStreetIndicator(tableIndex);
+  showDealerCue(step.street);
   activeStepIndex = tableIndex;
 
   const optionList = document.getElementById('optionList');
@@ -2152,47 +2464,58 @@ function handleAnswer(opt, optionList){
   feedbackLabel.textContent = opt.correct ? 'Correct' : 'Not quite';
   feedbackText.textContent = opt.feedback;
 
-  const nextBtn = document.getElementById('nextBtn');
-  nextBtn.classList.add('show');
-  nextBtn.onclick = () => {
+  const advance = () => {
     if(reviewMode){ reviewPos++; } else { stepIndex++; }
     renderStep();
   };
+
+  if(opt.correct){
+    // Correct call — brief confirmation, then the hand just continues on
+    // its own, the way a real dealer's next street just happens.
+    setTimeout(advance, 900);
+  } else {
+    // Wrong call — the trainee needs to actually read why before moving on,
+    // so this requires a tap rather than auto-advancing past a mistake.
+    const continueBtn = document.getElementById('continueHandBtn');
+    continueBtn.classList.add('show');
+    continueBtn.onclick = advance;
+  }
 }
 
 function renderSummary(shouldRecord){
   progressFill.style.width = '100%';
   const steps = currentScenario.scenario;
   const pct = Math.round((correctCount / steps.length) * 100);
+  const accuracy = Math.round((correctCount / steps.length) * 100);
   let msg;
   if(pct === 100) msg = "Clean hand, start to finish. That's exactly how it should run on the floor.";
   else if(pct >= 70) msg = "Solid work. Review the streets you missed and this one'll be automatic.";
   else msg = "That's why we practice. Run it back and lock in the sequence.";
 
-  scenarioBody.innerHTML = `
-    <div class="landscape-split">
-      <div class="poker-table" id="pokerTable">
-        <div class="table-oval"></div>
-        <div class="board-row board1" id="boardRow1"></div>
-        <div class="board-row board2" id="boardRow2"></div>
-        <div id="seatsEl"></div>
+  const hud = document.getElementById('dealerHud');
+  if(hud) hud.innerHTML = `<span class="hud-game">${currentScenario.name}</span><span class="hud-sep">\u00b7</span><span class="hud-task">Hand Complete</span>`;
+  showDealerCue('Push Pot');
+
+  // Note: the table itself is intentionally left exactly as the last street
+  // rendered it — the hand just finished, so nothing should redeal or reset
+  // until the trainee explicitly asks for another hand.
+  const qaColumn = document.getElementById('qaColumn');
+  qaColumn.innerHTML = `
+    <div class="summary-wrap">
+      <div class="summary-label">Hand Complete</div>
+      <div class="summary-score">${correctCount}/${steps.length}</div>
+      <div class="summary-label">Dealer Decisions Correct</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--slate-400);margin-top:8px;">
+        Correct: ${correctCount} &nbsp;\u00b7&nbsp; Mistakes: ${steps.length - correctCount} &nbsp;\u00b7&nbsp; Accuracy: ${accuracy}%
       </div>
-      <div class="qa-column">
-        <div class="summary-wrap">
-          <div class="summary-label">Hand Complete</div>
-          <div class="summary-score">${correctCount}/${steps.length}</div>
-          <div class="summary-label">Correct</div>
-          <div class="summary-msg">${msg}</div>
-          <div class="summary-actions">
-            <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
-            <button class="summary-btn ghost" id="exitToShellBtn">Back to Games</button>
-          </div>
-          ${missedSteps.length > 0 ? `<button class="review-btn" id="reviewMissesBtn">Review ${missedSteps.length} Missed Street${missedSteps.length > 1 ? 's' : ''}</button>` : ''}
-        </div>
+      <div class="summary-msg">${msg}</div>
+      <div class="summary-actions">
+        <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
+        <button class="summary-btn ghost" id="exitToShellBtn">Back to Games</button>
       </div>
+      ${missedSteps.length > 0 ? `<button class="review-btn" id="reviewMissesBtn">Review ${missedSteps.length} Mistake${missedSteps.length > 1 ? 's' : ''}</button>` : ''}
     </div>
   `;
-  renderTableView(steps.length - 1);
   if(shouldRecord) recordAttempt(currentScenario.name, correctCount, steps.length);
 
   document.getElementById('dealAgainBtn').addEventListener('click', () => {
@@ -2200,7 +2523,8 @@ function renderSummary(shouldRecord){
     correctCount = 0;
     missedSteps = [];
     reviewMode = false;
-    buildTable(currentScenario, true);
+    buildTable(currentScenario, true); // new shuffle, button rotates, cosmetic chips regenerate
+    renderHandShell(); // a genuinely new hand gets a fresh table, not a patched-up old one
     renderStep();
   });
   document.getElementById('exitToShellBtn').addEventListener('click', closeScenario);
