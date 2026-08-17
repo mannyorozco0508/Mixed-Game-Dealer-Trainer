@@ -1119,6 +1119,15 @@
     cursor:pointer;
   }
 
+  /* ---- Dealer error presentation (restrained: no ERROR! banners) ---- */
+  .mini-card.fault-exposed,
+  .board-card.fault-exposed{
+    box-shadow:0 0 0 1.5px var(--chip-red), 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .seat-pos.fault-highlight .seat-label{
+    border-color:var(--chip-red);
+  }
+
   /* ---- Real money display ---- */
   .pot-display{
     position:absolute;
@@ -1194,6 +1203,7 @@
 <script src="money-state.js"></script>
 <script src="dealer-tasks.js"></script>
 <script src="money-tasks.js"></script>
+<script src="dealer-errors.js"></script>
 
 <header>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
@@ -2461,6 +2471,9 @@ let lastPayout = null;
 let activeTaskSnapshot = null;   // frozen when a task opens; the answer cannot move
 let taskAnswered = false;        // blocks double submission
 let taskReviewRecords = [];      // immutable records so review works after the hand
+// --- Dealer error training (presentation layer only) ---
+let activeFault = null;          // the fault currently displayed, if any
+let faultVisualState = null;     // what we changed visually, so we can undo it exactly
 
 // Builds the read-only view a dynamic task interrogates. Only exposes what
 // the simulation can actually prove — nothing is fabricated.
@@ -2598,6 +2611,7 @@ function buildTable(game, isRedeal){
   currentBringInSeat = null;
   taskReviewRecords = [];
   taskAnswered = false;
+  clearActiveFault();
   showdownResult = null;
   showdownBoard = [];
   showdownBoard2 = [];
@@ -3059,6 +3073,18 @@ function runNextAction(){
 // nudge only — it never overrides a strong-hand or fold decision.
 function seatLoosenessFor(seat){
   return ((seat * 37) % 100) / 100;
+}
+
+// Attempts to inject a training fault. Returns the detection task if one
+// fired, otherwise null. Frequency and enablement come from config, never
+// from scattered probabilities.
+function maybeInjectFault(){
+  if(!window.RailErrors || !window.RailTasks) return null;
+  if(activeFault) return null;
+  const fault = window.RailErrors.chooseError(faultContext(), window.RailErrors.ERROR_TRAINING_CONFIG);
+  if(!fault) return null;
+  presentFault(fault);
+  return window.RailErrors.detectionTaskFor(fault);
 }
 
 function finishActionRound(){
@@ -3574,6 +3600,124 @@ function renderStepContent(step, tableIndex, isLastOfRun){
   scenarioBody.scrollTop = 0;
 }
 
+/* ---------------- Dealer error presentation ----------------
+   These functions change ONLY what the trainee sees. Authoritative deal
+   order, current actor, card identity, stacks, contributions and pots are
+   never written to — the fault is undone by restoring presentation. */
+
+// Builds the context the error registry needs, entirely from live state.
+function faultContext(){
+  const pattern = currentScenario && DEAL_PATTERNS[currentScenario.dealCat];
+  const hasBoard = !!(pattern && Math.max.apply(null, pattern.board) > 0);
+  const active = [];
+  for(let i = 0; i < tableSeats; i++){
+    if(i !== sitOutSeatIndex && !foldedSeats.has(i)) active.push(i);
+  }
+  return {
+    street: activeStepIndex,
+    hasBoard: hasBoard,
+    actionOpen: !!(currentRound && !currentRound.complete),
+    currentActor: currentRound ? currentRound.current : null,
+    // Expected recipient comes from the SAME action-order logic the
+    // simulation uses — this layer never computes its own seat order.
+    expectedRecipient: () => {
+      if(!window.RailAction || !currentScenario) return null;
+      return window.RailAction.firstActor({
+        dealCat: currentScenario.dealCat,
+        tableSeats: tableSeats,
+        buttonSeat: buttonSeatIndex,
+        sitOutSeat: sitOutSeatIndex,
+        foldedSeats: foldedSeats,
+        street: activeStepIndex,
+        upCards: upCardsBySeat(),
+        highBringsIn: currentScenario.name.indexOf('Stud Hi-Lo') !== 0
+      });
+    },
+    pickSeat: exclude => {
+      const pool = active.filter(s => s !== exclude);
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    }
+  };
+}
+
+// Applies the visual fault and records exactly what to undo.
+function presentFault(fault){
+  if(!fault) return;
+  activeFault = fault;
+  faultVisualState = { type: fault.errorType };
+  cancelPendingActions();  // freeze the table so the situation cannot change
+  flushPendingDeals();
+
+  if(fault.errorType === 'exposed-card'){
+    const el = seatEls[fault.affectedSeat];
+    const container = el && el.querySelector('.seat-cards');
+    const cardEl = container && container.children[fault.affectedCardIndex];
+    if(cardEl && cardEl.classList.contains('face-down')){
+      const slot = (seatSlotMaps[fault.affectedSeat] || [])[fault.affectedCardIndex];
+      const card = (seatHoleCards[fault.affectedSeat] || [])[slot];
+      if(card){
+        // Presentation only: the card's identity and slot are untouched.
+        faultVisualState.restore = { seat: fault.affectedSeat, index: fault.affectedCardIndex };
+        cardEl.classList.remove('face-down');
+        cardEl.classList.add('fault-exposed');
+        cardEl.textContent = cardFaceText(card);
+        if(cardIsRed(card)) cardEl.classList.add('red');
+      }
+    }
+  } else if(fault.errorType === 'wrong-recipient'){
+    const el = seatEls[fault.presentedRecipient];
+    if(el){ el.classList.add('fault-highlight'); faultVisualState.restore = { seat: fault.presentedRecipient }; }
+  } else if(fault.errorType === 'action-out-of-turn'){
+    // Show a badge on the offending seat WITHOUT touching currentRound.
+    showSeatAction(fault.offendingSeat, 'bet', 0, false);
+    const el = seatEls[fault.offendingSeat];
+    if(el){ el.classList.add('fault-highlight'); faultVisualState.restore = { seat: fault.offendingSeat, badge: true }; }
+  } else if(fault.errorType === 'premature-board'){
+    // Add ONE extra board card visually. It is drawn from the already-dealt
+    // board array, so no new card identity is created.
+    const boardEl = document.getElementById('boardRow1');
+    const nextCard = tableBoardCards[boardEl ? boardEl.children.length : 0];
+    if(boardEl && nextCard){
+      boardEl.insertAdjacentHTML('beforeend', cardHtml(nextCard, false, 0, 0, 40));
+      const added = boardEl.lastElementChild;
+      added.classList.add('fault-exposed');
+      faultVisualState.restore = { boardEl: true };
+    }
+  }
+}
+
+// Undoes the visual fault and restores a coherent table.
+function clearActiveFault(){
+  if(faultVisualState){
+    const r = faultVisualState.restore;
+    if(faultVisualState.type === 'exposed-card' && r){
+      const el = seatEls[r.seat];
+      const container = el && el.querySelector('.seat-cards');
+      const cardEl = container && container.children[r.index];
+      if(cardEl){
+        cardEl.classList.add('face-down');
+        cardEl.classList.remove('red', 'fault-exposed');
+        cardEl.textContent = '';
+      }
+    } else if(faultVisualState.type === 'premature-board' && r && r.boardEl){
+      const boardEl = document.getElementById('boardRow1');
+      if(boardEl && boardEl.lastElementChild) boardEl.lastElementChild.remove();
+    } else if(r && r.seat !== undefined){
+      const el = seatEls[r.seat];
+      if(el){
+        el.classList.remove('fault-highlight');
+        if(r.badge){
+          const badge = el.querySelector('.action-badge');
+          if(badge) badge.remove();
+        }
+      }
+    }
+  }
+  seatEls.forEach(el => el && el.classList.remove('fault-highlight'));
+  activeFault = null;
+  faultVisualState = null;
+}
+
 /* ---------------- Dynamic dealer task rendering ---------------- */
 
 // Makes the actual player seats the answer interface. No duplicate row of
@@ -3690,6 +3834,7 @@ function finishTaskAnswer(result, optionList){
 
   const advance = () => {
     clearTaskInteraction();
+    clearActiveFault();   // restore a coherent table before the hand continues
     if(reviewMode){ reviewPos++; } else { stepIndex++; }
     renderStep();
     if(!reviewMode && currentScenario && stepIndex < currentScenario.scenario.length){
