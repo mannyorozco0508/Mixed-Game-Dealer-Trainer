@@ -1590,6 +1590,16 @@ function superStudSteps({showdownPrompt, showdownOptions}){
       ]
     },
     {
+      street:"Showdown",
+      difficulty:2,
+      prompt:"A Super Pat player kept their original five cards. Which side of the pot is their hand eligible for?",
+      options:[
+        {text:"Both — the same five cards play for high AND for the 8-or-better low", correct:true, feedback:"Correct. Declaring Pat locks the hand, it does not restrict which half it competes for. Those five cards are read for both sides."},
+        {text:"High only — a Pat player gives up the low side", correct:false, feedback:"Pat only means no more cards. The hand still plays for both high and low like anyone else's."},
+        {text:"Only whichever side they declare at showdown", correct:false, feedback:"There is no declaration at showdown in this game. Every eligible hand is automatically read for both sides."}
+      ]
+    },
+    {
       street:"Discard/Pat",
       difficulty:2,
       prompt:"A player declares Pat, then a second player also declares Pat. Who acts first from here?",
@@ -1957,7 +1967,7 @@ const DATA = [
           {text:"Any pair or better, high hand wins", correct:false, feedback:"Razz is a low-only game — the lowest 5-card hand wins, not the highest."}
         ]
       })},
-      { name:"Super Stud / Super Pat", dealCat:"superStud", maxPlayers:7, pot:"single/split", meta:"4 down, 1 up · max 7", flow:[
+      { name:"Super Stud Hi-Lo 8 / Super Pat", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
         "Deal 4 down + 1 up",
         "Discard 2 down before 4th street — or declare Pat",
         "Burn, deal 4th street — betting round",
@@ -1965,27 +1975,13 @@ const DATA = [
         "Burn, deal 6th street — betting round",
         "Burn, deal 7th street — betting round",
         "Showdown"
-      ], notes:"Super Pat locks in the 5-card hand and drives betting every round after. Multiple Pats → bring-in acts as the button. Variants: Studugi, 8-or-better, Any-Any (Any-Any's full rules aren't documented yet — confirm with your floor supervisor before dealing it).",
+      ], notes:"Hi-Lo split, 8-or-better qualifier. A Super Pat player keeps the original five cards, takes no more cards, and drives betting every round after — but their five-card hand still plays for BOTH high and low. Multiple Pats → bring-in acts as the button. No qualifying low → high takes the whole pot.",
       scenario: superStudSteps({
-        showdownPrompt:"Final betting's done. This base game is typically played as a single winner — what determines it?",
+        showdownPrompt:"Final betting's done. How is this pot awarded?",
         showdownOptions:[
-          {text:"Best standard 5-card hand for whatever variant is being played — high hand by default, or Studugi/8-or-better/Any-Any if that's the spread called", correct:true, feedback:"Right — Super Stud/Super Pat plays as whatever variant is on the board, high hand by default."},
-          {text:"Always a split pot between high and low", correct:false, feedback:"Not by default — base Super Stud/Super Pat is single-winner unless a split variant like Super Hi-Lo Stud is specifically being played."},
-          {text:"Whoever declared Pat automatically wins", correct:false, feedback:"Pat locks in a hand, it doesn't guarantee a win — best hand at showdown still takes it."}
-        ]
-      })},
-      { name:"Super Hi-Lo Stud", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
-        "Deal 4 down + 1 up",
-        "Discard 2 down before 4th street",
-        "Burn, deal 4th–7th street — betting each round",
-        "Showdown"
-      ], notes:"High brings in, King♠ is highest. Looking for best Hi + best 8-or-better Lo. Odd chip → Hi hand.",
-      scenario: superStudSteps({
-        showdownPrompt:"Final betting's done — split pot time. What's the payout?",
-        showdownOptions:[
-          {text:"50% best Hi hand + 50% best 8-or-better Lo hand, odd chip to the Hi hand", correct:true, feedback:"Right — and note the odd chip breaks toward Hi here, which is the exception to the usual best-5-card-hand default."},
-          {text:"50% Hi + 50% Lo, odd chip to the Lo hand", correct:false, feedback:"Close, but the odd chip in Super Hi-Lo Stud goes to the Hi hand specifically, not the Lo hand."},
-          {text:"Winner take all to best Hi hand, no qualifier needed for Lo", correct:false, feedback:"This is a split-pot game with an 8-or-better qualifier for the low side — it's not winner-take-all."}
+          {text:"50% best Hi hand + 50% best 8-or-better Lo hand, odd chip to the Hi hand", correct:true, feedback:"Correct — this is a Hi-Lo split. The low must be eight-high or better to qualify, and when the pot splits unevenly the odd chip goes to the high side."},
+          {text:"Winner take all to the best 5-card high hand", correct:false, feedback:"That is the generic high-only Super Stud family. The game spread here is Hi-Lo 8-or-better, so a qualifying low takes half the pot."},
+          {text:"50% Hi + 50% Lo with any low qualifying, no 8-or-better requirement", correct:false, feedback:"The low must be eight-high or better. With no qualifying low, the high hand takes the entire pot."}
         ]
       })},
       { name:"Super Baducey", dealCat:"superStud", maxPlayers:7, pot:"split", meta:"4 down, 1 up · max 7", flow:[
@@ -2795,8 +2791,10 @@ const DEAL_PATTERNS = {
   // Super Stud: four down then the fifth face up, discard two DOWN cards
   // (keeping the up card), then up cards until four are exposed, final down.
   // 8 steps: deal, discard, two Pat-rule questions (no new cards), then streets.
-  superStud:      { hole:[0,5,3,3,3,3,3,7], upCount:[0,1,1,1,1,1,1,4], board:[0,0,0,0,0,0,0,0],
-                    faceSeq:['','DDDDU','DDU','DDU','DDU','DDU','DDU','DDUUUUD'],
+  // 9 steps: deal, discard, Pat-eligibility + two Pat-rule questions (no new
+  // cards on those), then the exposed streets and the final down card.
+  superStud:      { hole:[0,5,3,3,3,3,3,3,7], upCount:[0,1,1,1,1,1,1,1,4], board:[0,0,0,0,0,0,0,0,0],
+                    faceSeq:['','DDDDU','DDU','DDU','DDU','DDU','DDU','DDU','DDUUUUD'],
                     discardKeep:{ 2:[0,1,4] } },
   // 7 steps for variants carrying a draw-side scoring question (no new cards
   // on that step); Drawmaha Hi has 6 and simply never reaches index 6.

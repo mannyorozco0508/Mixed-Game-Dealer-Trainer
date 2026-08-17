@@ -216,7 +216,12 @@ const SHOWDOWN_RULES = {
   // --- Stud ---
   'Stud Hi-Lo / 8-or-Better': { family:'high+low8',     needsBoard:0 },
   'Razz':                     { family:'a5-only',       needsBoard:0 },
-  'Super Stud / Super Pat':   { family:'high-only',     needsBoard:0 },
+  // Talking Stick spreads this as "Super Stud Hi/Lo 8 Super Pat" — a hi-lo
+  // split with an A-to-5 eight-or-better qualifier. The old high-only mapping
+  // described the generic Super Stud family, not the game this room deals.
+  'Super Stud Hi-Lo 8 / Super Pat': { family:'high+low8', needsBoard:0 },
+  // Legacy names kept so any saved progress or older reference still resolves.
+  'Super Stud / Super Pat':   { family:'high+low8',     needsBoard:0 },
   'Super Hi-Lo Stud':         { family:'high+low8',     needsBoard:0 },
   'Super Baducey':            { family:'badugi+27',     needsBoard:0 },
   'Super Badacey':            { family:'badugi+a5',     needsBoard:0 },
