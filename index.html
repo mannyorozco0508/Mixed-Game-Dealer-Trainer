@@ -1119,6 +1119,60 @@
     cursor:pointer;
   }
 
+  /* ---- Onboarding & mode picker ---- */
+  #onboarding-overlay{
+    position:fixed; inset:0; z-index:60; display:none;
+    background:var(--felt-900);
+    background-image:radial-gradient(circle at 50% 20%, rgba(201,162,39,0.08), transparent 60%);
+    align-items:center; justify-content:center; padding:24px;
+  }
+  #onboarding-overlay.open{ display:flex; }
+  .onboard-card{ max-width:440px; width:100%; text-align:center; }
+  .onboard-step{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--slate-400); margin-bottom:14px;
+  }
+  .onboard-title{
+    font-family:'Fraunces', serif; font-weight:600; font-size:26px;
+    color:var(--ivory-100); margin:0 0 12px;
+  }
+  .onboard-body{ font-size:15px; line-height:1.6; color:var(--ivory-200); margin:0 0 22px; }
+  .onboard-modes{ display:none; flex-direction:column; gap:8px; margin-bottom:22px; }
+  .onboard-modes.show{ display:flex; }
+  .mode-option{
+    text-align:left; background:var(--felt-800);
+    border:1px solid rgba(237,230,214,0.16); border-radius:2px;
+    padding:12px 14px; cursor:pointer; color:var(--ivory-100);
+    font-family:'Inter', sans-serif;
+  }
+  .mode-option:hover, .mode-option:focus-visible{ border-color:var(--brass-500); }
+  .mode-option.selected{ border-color:var(--brass-500); background:rgba(201,162,39,0.12); }
+  .mode-option-label{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--brass-300);
+  }
+  .mode-option-blurb{ font-size:12.5px; color:var(--slate-400); margin-top:3px; line-height:1.45; }
+  .mode-option-recommended{
+    font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:0.1em;
+    color:var(--chip-blue); margin-left:6px;
+  }
+  .onboard-actions{ display:flex; gap:10px; justify-content:center; }
+  .onboard-next{
+    background:var(--brass-500); color:var(--felt-900); border:none; border-radius:2px;
+    padding:12px 22px; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    font-weight:700; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+  }
+  .onboard-skip{
+    background:none; border:1px solid rgba(237,230,214,0.25); color:var(--slate-400);
+    border-radius:2px; padding:12px 18px; font-family:'IBM Plex Mono', monospace;
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+  }
+  .mode-badge{
+    font-family:'IBM Plex Mono', monospace; font-size:9.5px; letter-spacing:0.08em;
+    color:var(--brass-300); border:1px solid rgba(201,162,39,0.35);
+    border-radius:2px; padding:2px 6px; margin-left:8px;
+  }
+
   /* ---- Dealer error presentation (restrained: no ERROR! banners) ---- */
   .mini-card.fault-exposed,
   .board-card.fault-exposed{
@@ -1204,8 +1258,10 @@
 <script src="dealer-tasks.js"></script>
 <script src="money-tasks.js"></script>
 <script src="dealer-errors.js"></script>
+<script src="training-modes.js"></script>
 
 <header>
+  <button id="modeToggle" style="position:absolute;top:14px;left:14px;background:none;border:1px solid rgba(201,162,39,0.4);color:var(--brass-300);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">MODE</button>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
   <div class="eyebrow">Dealer Reference &amp; Trainer</div>
   <h1>The <em>Rail</em></h1>
@@ -1237,6 +1293,19 @@
 
 <footer>THE RAIL — 21 GAMES · REAL 7-HANDED TABLES · HOLE CARDS HIDDEN LIKE THE REAL FLOOR</footer>
 
+<div id="onboarding-overlay">
+  <div class="onboard-card">
+    <div class="onboard-step" id="onboardStep"></div>
+    <h2 class="onboard-title" id="onboardTitle"></h2>
+    <p class="onboard-body" id="onboardBody"></p>
+    <div class="onboard-modes" id="onboardModes"></div>
+    <div class="onboard-actions">
+      <button class="onboard-skip" id="onboardSkip">Skip</button>
+      <button class="onboard-next" id="onboardNext">Next</button>
+    </div>
+  </div>
+</div>
+
 <div id="scenario-overlay">
   <div class="scenario-header">
     <div class="scenario-header-top">
@@ -1251,8 +1320,10 @@
 
 <script>
 /* ---------------- Scenario Generators ---------------- */
-function tripleDrawSteps({downCards, showdownPrompt, showdownOptions}){
-  return [
+function tripleDrawSteps({downCards, extraStep, showdownPrompt, showdownOptions}){
+  // extraStep carries a question specific to THIS game's scoring, so games
+  // sharing the same dealing shape stop sharing an identical question set.
+  const base = [
     {
       street:"Deal",
       prompt:"New hand. Cards are shuffled. What do you do first?",
@@ -1289,8 +1360,10 @@ function tripleDrawSteps({downCards, showdownPrompt, showdownOptions}){
         {text:"Deal Draw 3 with no burn", correct:false, feedback:"Still burn first, even on the last draw."}
       ]
     },
-    { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }
   ];
+  if(extraStep) base.push(extraStep);
+  base.push({ street:"Showdown", prompt:showdownPrompt, options:showdownOptions });
+  return base;
 }
 
 function drawmahaCommonSteps(){
@@ -1342,8 +1415,13 @@ function drawmahaCommonSteps(){
     }
   ];
 }
-function drawmahaScenario({showdownPrompt, showdownOptions}){
-  return [...drawmahaCommonSteps(), { street:"Showdown", prompt:showdownPrompt, options:showdownOptions }];
+function drawmahaScenario({extraStep, showdownPrompt, showdownOptions}){
+  // extraStep lets each Drawmaha variant carry a question about its OWN
+  // draw-side scoring, so the variants stop sharing one identical template.
+  const steps = drawmahaCommonSteps();
+  if(extraStep) steps.push(extraStep);
+  steps.push({ street:"Showdown", prompt:showdownPrompt, options:showdownOptions });
+  return steps;
 }
 
 function superStudSteps({showdownPrompt, showdownOptions}){
@@ -1495,6 +1573,36 @@ const DATA = [
           ]
         },
         {
+          street:"Protection",
+          difficulty:1,
+          prompt:"A player's hole cards are sitting unprotected near the edge of the table as you sweep the muck. What's the dealer's responsibility?",
+          options:[
+            {text:"Pause and let the player protect their hand before the muck passes", correct:true, feedback:"Right. A hand that touches the muck is dead, so a good dealer creates the moment for the player to protect it rather than sweeping through."},
+            {text:"Sweep normally — protecting the hand is entirely the player's job", correct:false, feedback:"Protection is the player's responsibility, but a dealer who sweeps carelessly creates avoidable rulings. Slow down and give them the beat."},
+            {text:"Push their cards back toward them", correct:false, feedback:"Never handle a live hand. Pause, make eye contact, let them protect it themselves."}
+          ]
+        },
+        {
+          street:"Dead Hand",
+          difficulty:2,
+          prompt:"Two cards from a player's hand touch the muck pile while action is still live. What's the status of that hand?",
+          options:[
+            {text:"The hand is dead — cards that reach the muck cannot be retrieved", correct:true, feedback:"Correct. The muck is a one-way boundary. This is why protecting a hand matters and why the muck stays clearly separated."},
+            {text:"Retrievable if the dealer can identify the exact cards", correct:false, feedback:"Identifiability isn't the test — the muck is final regardless of whether the cards are distinguishable."},
+            {text:"Live if the player hadn't released them intentionally", correct:false, feedback:"Intent doesn't reverse it. Once the cards reach the muck the hand is dead."}
+          ]
+        },
+        {
+          street:"Deck Handling",
+          difficulty:1,
+          prompt:"During a hand you notice the deck was never cut before the deal. What does this affect?",
+          options:[
+            {text:"Deck integrity — the cut is what makes the shuffle verifiable to the table", correct:true, feedback:"Right. The cut is a game-security step, not a formality. Skipping it undermines the table's confidence in every hand that follows."},
+            {text:"Nothing, as long as the shuffle was thorough", correct:false, feedback:"A thorough shuffle still isn't verifiable without the cut. The cut is what the table can see."},
+            {text:"Only the burn card sequence", correct:false, feedback:"Burns are unrelated. The cut is about deck security before any card leaves the deck."}
+          ]
+        },
+        {
           street:"7th Street",
           prompt:"You're on 7th street in a stud-format game and the deck's short. What's the priority?",
           options:[
@@ -1570,6 +1678,16 @@ const DATA = [
         "Showdown"
       ], notes:"50% best Badugi (4-card) + 50% best A-5 low (5-card). Odd chip → best 5-card hand.",
       scenario: tripleDrawSteps({
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"In Badacey, which low ranking is used for the five-card half?",
+          options:[
+            {text:"A-5 low — the ace plays low and straights and flushes are ignored", correct:true, feedback:"Correct. Badacey pairs a badugi with an A-5 low, so A-2-3-4-5 is the nut low on that half."},
+            {text:"2-7 low — the ace plays high", correct:false, feedback:"That is Baducey. The names differ by exactly this: Badacey uses A-5, Baducey uses 2-7."},
+            {text:"Whichever the player declares", correct:false, feedback:"There is no declaration. The low ranking is fixed by the game."}
+          ]
+        },
         downCards:5,
         showdownPrompt:"Final betting's done — this is a split pot game. What are you awarding it to?",
         showdownOptions:[
@@ -1587,6 +1705,16 @@ const DATA = [
         "Showdown"
       ], notes:"50% best Badugi (4-card) + 50% best 2-7 low (5-card). Odd chip → best 5-card hand.",
       scenario: tripleDrawSteps({
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"In Baducey, which low ranking is used for the five-card half?",
+          options:[
+            {text:"2-7 low — the ace plays high and straights and flushes count against you", correct:true, feedback:"Correct. Baducey pairs a badugi with a 2-7 low, so 7-5-4-3-2 unsuited is the nut low on that half."},
+            {text:"A-5 low — the ace plays low", correct:false, feedback:"That is Badacey. The one-letter difference in the name is the whole distinction."},
+            {text:"The same ranking as the badugi half", correct:false, feedback:"The two halves use different rankings — that is what makes it a split game."}
+          ]
+        },
         downCards:5,
         showdownPrompt:"Final betting's done — this is a split pot game. What are you awarding it to?",
         showdownOptions:[
@@ -1941,7 +2069,17 @@ const DATA = [
         "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
       ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
-        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"On the draw side of Drawmaha A-5, does a flush in your five hole cards hurt your low?",
+          options:[
+            {text:"No — straights and flushes do not count against an A-5 low", correct:true, feedback:"Correct. A-5 scoring ignores straights and flushes entirely, so A-2-3-4-5 of one suit is still the nuts on that side."},
+            {text:"Yes — a flush disqualifies the low", correct:false, feedback:"That is 2-7 scoring. In A-5 the suits simply do not matter for the low."},
+            {text:"Only if it is an ace-high flush", correct:false, feedback:"Suits never affect an A-5 low, regardless of the high card."}
+          ]
+        },
+        showdownPrompt:"Final betting's done. What is the best possible A-5 low hand here?",
         showdownOptions:[
           {text:"50% best Omaha Hi (board) + 50% best A-5 low using hole cards only, odd chip to the low hand", correct:true, feedback:"Right — the low side is scored from hole cards only, like a straight A-5 lowball hand."},
           {text:"50% Omaha Hi + 50% best 2-7 low", correct:false, feedback:"That's Drawmaha 2-7. This variant pairs Omaha Hi with A-5 low specifically."},
@@ -1952,7 +2090,17 @@ const DATA = [
         "Same flow as Drawmaha Hi — draw hand scored as 2-7 low (ace high)"
       ], notes:"50% Omaha Hi + 50% best 2-7 low in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
-        showdownPrompt:"Final betting's done, split pot. What's the payout?",
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"On the draw side of Drawmaha 2-7, a player holds 5-4-3-2-A. How good is that low?",
+          options:[
+            {text:"Poor — the ace plays high and A-2-3-4-5 makes a straight, both bad for 2-7", correct:true, feedback:"Correct. In 2-7 the ace is a high card and straights count against you, so the wheel is close to worthless on that side."},
+            {text:"It is the nuts — the wheel is the best low", correct:false, feedback:"That is A-5 scoring. In 2-7 that same holding is a straight with an ace in it."},
+            {text:"Strong, because it contains no pair", correct:false, feedback:"Unpaired is necessary but not sufficient — the straight and the high ace both count against it."}
+          ]
+        },
+        showdownPrompt:"Final betting's done. What is the best possible 2-7 low hand here?",
         showdownOptions:[
           {text:"50% Omaha Hi + 50% best 2-7 low (ace plays high) using hole cards only, odd chip to the low hand", correct:true, feedback:"Correct — and remember ace plays high here since it's 2-7, unlike the A-5 variant."},
           {text:"50% Omaha Hi + 50% best A-5 low", correct:false, feedback:"That's Drawmaha A-5. This variant uses 2-7 low scoring specifically, where the ace plays high."},
@@ -1963,6 +2111,16 @@ const DATA = [
         "Same flow as Drawmaha Hi — draw hand scored by point count"
       ], notes:"50% Omaha Hi + 50% highest point count (Aces=1, faces=0, number cards=value, max 49). Odd chip → best draw hand.",
       scenario: drawmahaScenario({
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"On the draw side of Drawmaha 49, what does a hand of K-Q-J-T-9 score?",
+          options:[
+            {text:"19 points — face cards count zero, the ten and nine count their value", correct:true, feedback:"Correct. Kings, queens and jacks score nothing, so only the T and 9 contribute: 10 + 9 = 19."},
+            {text:"49 points — it is the maximum", correct:false, feedback:"The maximum 49 comes from T-T-T-T-9. Face cards are worth nothing at all."},
+            {text:"Zero — all five are high cards", correct:false, feedback:"Only J, Q and K score zero. Tens and nines count their face value."}
+          ]
+        },
         showdownPrompt:"Final betting's done, split pot. What's the payout?",
         showdownOptions:[
           {text:"50% Omaha Hi + 50% highest point count from hole cards (aces=1, faces=0, number cards=value, max 49), odd chip to the point-count hand", correct:true, feedback:"Right — it's a point count contest on the draw side, not a traditional poker hand."},
@@ -1974,6 +2132,16 @@ const DATA = [
         "Same flow as Drawmaha Hi — draw hand scored as Badugi"
       ], notes:"50% Omaha Hi + 50% best Badugi in hole cards. Odd chip → best draw hand.",
       scenario: drawmahaScenario({
+        extraStep: {
+          street:"Draw",
+          difficulty:2,
+          prompt:"On the draw side of Drawmaha Badugi, a player holds five cards but only three different suits. What is the best badugi possible?",
+          options:[
+            {text:"A three-card badugi — a badugi needs four distinct suits AND four distinct ranks", correct:true, feedback:"Correct. With only three suits present, no four-card badugi exists no matter how the ranks fall."},
+            {text:"A four-card badugi, using the lowest four cards", correct:false, feedback:"Four cards need four different suits. Three suits caps the badugi at three cards."},
+            {text:"A five-card badugi, since they hold five cards", correct:false, feedback:"A badugi is never more than four cards, regardless of how many are held."}
+          ]
+        },
         showdownPrompt:"Final betting's done, split pot. What's the payout?",
         showdownOptions:[
           {text:"50% Omaha Hi + 50% best Badugi (4 unpaired, unsuited cards) from the hole cards, odd chip to the Badugi hand", correct:true, feedback:"Correct — even though players get 5 hole cards, the Badugi side only counts the best 4-card Badugi within those 5."},
@@ -2072,6 +2240,26 @@ const DATA = [
           ]
         },
         {
+          street:"Pre-Flop",
+          difficulty:2,
+          prompt:"A player has already discarded and now wants their card back before the flop is dealt. What's the ruling?",
+          options:[
+            {text:"The discard is final — a released card is dead", correct:true, feedback:"Correct. Once a card is released face down toward the muck it's dead. Protecting that boundary is what keeps the deck honest."},
+            {text:"Return it, since betting hasn't started", correct:false, feedback:"Timing doesn't reopen a released card. In Pineapple the discard happens before betting precisely so it's settled early."},
+            {text:"Return it only if it hasn't touched the muck", correct:false, feedback:"That's a common instinct, but a card released toward the muck is treated as dead regardless of contact."}
+          ]
+        },
+        {
+          street:"Flop",
+          difficulty:2,
+          prompt:"How many cards does each player hold when the flop is dealt in Pineapple?",
+          options:[
+            {text:"2 — the discard already happened before any betting", correct:true, feedback:"Right. That's the defining difference from Crazy Pineapple, where players still hold 3 when the flop comes out."},
+            {text:"3 — the discard happens after the flop", correct:false, feedback:"That's Crazy Pineapple. In regular Pineapple the discard is complete before the first betting round."},
+            {text:"2, but they may swap one on the flop", correct:false, feedback:"There's no swap in Pineapple — one discard, made before betting, and that's it."}
+          ]
+        },
+        {
           street:"Turn/River",
           prompt:"Turn betting's done. What's next, and what hand wins at showdown?",
           options:[
@@ -2115,6 +2303,26 @@ const DATA = [
             {text:"NOW have players discard down to 2 cards", correct:true, feedback:"Exactly right — this is the defining Crazy Pineapple quirk: the discard happens after the flop betting round, not before."},
             {text:"Deal the turn — the discard already happened", correct:false, feedback:"It hasn't happened yet in Crazy Pineapple — this is the moment the discard occurs, right after flop betting."},
             {text:"Ask players to discard 2 cards, keeping only 1", correct:false, feedback:"Players discard down to 2 cards, keeping 2, not 1."}
+          ]
+        },
+        {
+          street:"Flop",
+          difficulty:2,
+          prompt:"The flop betting round is complete and you call for the discard. One player has already turned their turn card face up. What went wrong?",
+          options:[
+            {text:"The turn card was dealt before the discard was collected", correct:true, feedback:"Right. In Crazy Pineapple the discard comes AFTER flop betting and BEFORE the turn. Dealing the turn early skips a required step."},
+            {text:"Nothing — the turn follows flop betting", correct:false, feedback:"In Hold'em yes, but Crazy Pineapple inserts the discard between flop betting and the turn."},
+            {text:"The discard should have happened before the flop", correct:false, feedback:"That's regular Pineapple. Crazy Pineapple deliberately delays it until after flop betting."}
+          ]
+        },
+        {
+          street:"Flop",
+          difficulty:1,
+          prompt:"How many cards does each player hold while the flop is being bet in Crazy Pineapple?",
+          options:[
+            {text:"3 — the discard comes after flop betting", correct:true, feedback:"Correct. Players see the flop with all three cards, which is exactly what makes the game play differently from Pineapple."},
+            {text:"2 — the discard already happened", correct:false, feedback:"That's regular Pineapple. Here the discard is still ahead."},
+            {text:"3, but one is face up", correct:false, feedback:"All hole cards stay face down — this is a flop game, not stud."}
           ]
         },
         {
@@ -2367,8 +2575,10 @@ function cardHtml(c, mini, delayMs, dx, dy){
 const DEAL_PATTERNS = {
   draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0],
                     faceSeq:['','DDDD','DDDD','DDDD','DDDD'] },
-  draw5:          { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  // 6 steps for games carrying a scoring question (no new cards on that step);
+  // games with 5 steps simply never reach index 5.
+  draw5:          { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,0,0,0,0],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // Real 7-card stud: 2 down + 1 up on 3rd street, up cards on 4th-6th,
   // 7th street dealt face down.
   // 6 steps: bring-in seat task, completion-owed task (no new cards), then
@@ -2380,8 +2590,10 @@ const DEAL_PATTERNS = {
   superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0],
                     faceSeq:['','DDDDU','DDU','DDU','DDU','DDUUUUD'],
                     discardKeep:{ 2:[0,1,4] } },
-  drawmaha:       { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,4,5],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  // 7 steps for variants carrying a draw-side scoring question (no new cards
+  // on that step); Drawmaha Hi has 6 and simply never reaches index 6.
+  drawmaha:       { hole:[0,5,5,5,5,5,5],   upCount:[0,0,0,0,0,0,0],   board:[0,0,3,3,4,5,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // Big O: five face-down hole cards, standard complete community board.
   // Both Hi-Lo and PLO share this dealing shape — they differ only at showdown.
   // Six entries because Big O Hi-Lo has a sixth showdown question; PLO reads
@@ -2390,10 +2602,12 @@ const DEAL_PATTERNS = {
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5],
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
-  pineapple:      { hole:[3,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,4],
-                    faceSeq:['DDD','DD','DD','DD'], discardKeep:{ 1:[0,1] } },
-  crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3],
-                    faceSeq:['DDD','DDD','DDD','DD'], discardKeep:{ 3:[0,1] } },
+  // 6 steps: deal(3), discard to 2, two ruling questions (no new cards), flop, turn/river
+  pineapple:      { hole:[3,2,2,2,2,2],     upCount:[0,0,0,0,0,0],     board:[0,0,0,0,3,5],
+                    faceSeq:['DDD','DD','DD','DD','DD','DD'], discardKeep:{ 1:[0,1] } },
+  // 6 steps: deal(3), preflop(3), flop(3 held), two ruling questions, discard to 2
+  crazyPineapple: { hole:[3,3,3,3,3,2],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,3,5],
+                    faceSeq:['DDD','DDD','DDD','DDD','DDD','DD'], discardKeep:{ 5:[0,1] } },
   // 5 steps: deal, call-amount task (no new cards), flop, turn/river, showdown
   holdem:         { hole:[0,2,2,2,2],       upCount:[0,0,0,0,0],       board:[0,0,0,3,5],
                     faceSeq:['','DD','DD','DD','DD'] }
@@ -2472,6 +2686,10 @@ let activeTaskSnapshot = null;   // frozen when a task opens; the answer cannot 
 let taskAnswered = false;        // blocks double submission
 let taskReviewRecords = [];      // immutable records so review works after the hand
 // --- Dealer error training (presentation layer only) ---
+// --- Training mode (persists across hands, games and sessions) ---
+let currentMode = 'practice';
+let hintRequested = false;
+
 let activeFault = null;          // the fault currently displayed, if any
 let faultVisualState = null;     // what we changed visually, so we can undo it exactly
 
@@ -3041,7 +3259,8 @@ function runNextAction(){
 
   highlightActingSeat(seat);
   const generation = actionGeneration;
-  const delay = 350 + Math.floor(Math.random() * 300); // believable pace, 350-650ms
+  // Pace is set by the training mode so Learn is followable and Table Ready is brisk.
+  const delay = window.RailModes ? window.RailModes.actionDelay(currentMode) : 500;
   pendingActionTimers.push(setTimeout(() => {
     if(generation !== actionGeneration) return; // stale — abandoned hand
     const family = tierFamilyForGame(currentScenario);
@@ -3081,7 +3300,11 @@ function seatLoosenessFor(seat){
 function maybeInjectFault(){
   if(!window.RailErrors || !window.RailTasks) return null;
   if(activeFault) return null;
-  const fault = window.RailErrors.chooseError(faultContext(), window.RailErrors.ERROR_TRAINING_CONFIG);
+  // Frequency and permitted types come from the MODE, not a global constant.
+  const cfg = window.RailModes
+    ? window.RailModes.errorConfigForMode(currentMode, window.RailErrors.errorTypeNames())
+    : window.RailErrors.ERROR_TRAINING_CONFIG;
+  const fault = window.RailErrors.chooseError(faultContext(), cfg);
   if(!fault) return null;
   presentFault(fault);
   return window.RailErrors.detectionTaskFor(fault);
@@ -3600,6 +3823,89 @@ function renderStepContent(step, tableIndex, isLastOfRun){
   scenarioBody.scrollTop = 0;
 }
 
+/* ---------------- Training mode & onboarding ---------------- */
+function initTrainingMode(){
+  if(!window.RailModes) return;
+  currentMode = window.RailModes.loadMode(window.localStorage);
+  updateModeBadge();
+  if(!window.RailModes.isOnboardingComplete(window.localStorage)) startOnboarding();
+}
+
+function setTrainingMode(id){
+  if(!window.RailModes) return;
+  currentMode = window.RailModes.getMode(id).id;
+  window.RailModes.saveMode(window.localStorage, currentMode);
+  updateModeBadge();
+}
+
+function updateModeBadge(){
+  const btn = document.getElementById('modeToggle');
+  if(btn && window.RailModes) btn.textContent = window.RailModes.getMode(currentMode).label.toUpperCase();
+}
+
+let onboardIndex = 0;
+function startOnboarding(){
+  onboardIndex = 0;
+  document.getElementById('onboarding-overlay').classList.add('open');
+  renderOnboardCard();
+}
+function renderOnboardCard(){
+  if(!window.RailModes) return;
+  const cards = window.RailModes.ONBOARDING_CARDS;
+  const card = cards[onboardIndex];
+  document.getElementById('onboardStep').textContent = (onboardIndex + 1) + ' of ' + cards.length;
+  document.getElementById('onboardTitle').textContent = card.title;
+  document.getElementById('onboardBody').textContent = card.body;
+
+  const modesEl = document.getElementById('onboardModes');
+  const nextBtn = document.getElementById('onboardNext');
+  if(card.isModePicker){
+    modesEl.classList.add('show');
+    modesEl.innerHTML = window.RailModes.allModes().map(m => {
+      const rec = m.id === window.RailModes.RECOMMENDED_START.mode
+        ? '<span class="mode-option-recommended">RECOMMENDED</span>' : '';
+      const sel = m.id === currentMode ? ' selected' : '';
+      return '<button class="mode-option' + sel + '" data-mode="' + m.id + '">' +
+             '<div class="mode-option-label">' + m.label + rec + '</div>' +
+             '<div class="mode-option-blurb">' + m.blurb + '</div></button>';
+    }).join('');
+    Array.from(modesEl.querySelectorAll('.mode-option')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        setTrainingMode(btn.getAttribute('data-mode'));
+        Array.from(modesEl.querySelectorAll('.mode-option')).forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+    nextBtn.textContent = 'Start Dealing';
+  } else {
+    modesEl.classList.remove('show');
+    modesEl.innerHTML = '';
+    nextBtn.textContent = 'Next';
+  }
+}
+function finishOnboarding(){
+  if(window.RailModes) window.RailModes.setOnboardingComplete(window.localStorage, true);
+  document.getElementById('onboarding-overlay').classList.remove('open');
+}
+
+document.getElementById('onboardNext').addEventListener('click', () => {
+  const cards = window.RailModes ? window.RailModes.ONBOARDING_CARDS : [];
+  if(onboardIndex < cards.length - 1){ onboardIndex++; renderOnboardCard(); }
+  else finishOnboarding();
+});
+document.getElementById('onboardSkip').addEventListener('click', finishOnboarding);
+
+// The mode button reopens the picker directly — changing level is one tap,
+// never a hunt through settings.
+document.getElementById('modeToggle').addEventListener('click', () => {
+  if(!window.RailModes) return;
+  onboardIndex = window.RailModes.ONBOARDING_CARDS.length - 1; // jump to the picker
+  document.getElementById('onboarding-overlay').classList.add('open');
+  renderOnboardCard();
+});
+
+initTrainingMode();
+
 /* ---------------- Dealer error presentation ----------------
    These functions change ONLY what the trainee sees. Authoritative deal
    order, current actor, card identity, stacks, contributions and pots are
@@ -3829,7 +4135,8 @@ function finishTaskAnswer(result, optionList){
   const feedbackText = document.getElementById('feedbackText');
   feedbackBox.className = 'feedback-box show ' + (result.correct ? 'correct' : 'incorrect');
   feedbackLabel.textContent = result.correct ? 'Correct' : 'Not quite';
-  feedbackText.textContent = result.feedback ||
+  const shaped = window.RailModes ? window.RailModes.presentFeedback(currentMode, result) : result.feedback;
+  feedbackText.textContent = shaped ||
     (result.correct ? '' : 'The correct answer was ' + result.reviewRecord.expectedLabel + '.');
 
   const advance = () => {
