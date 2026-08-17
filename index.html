@@ -1851,7 +1851,7 @@ const DATA = [
         "Burn, deal turn on both boards — betting round",
         "Burn, deal river on both boards — betting round",
         "Showdown"
-      ], notes:"50% best Omaha Hi Board 1 + 50% best Omaha Hi Board 2. PLO or fixed-limit.",
+      ], notes:"50% best Omaha Hi Top Board + 50% best Omaha Hi Bottom Board. PLO or fixed-limit.",
       scenario:[
         {
           street:"Deal",
@@ -1893,8 +1893,8 @@ const DATA = [
           street:"Showdown",
           prompt:"Final betting's done. What's the payout?",
           options:[
-            {text:"50% best Omaha Hi hand using Board 1 + 50% best Omaha Hi hand using Board 2", correct:true, feedback:"Correct — each board is scored independently, and the pot splits between them."},
-            {text:"Best combined hand using cards from both boards at once", correct:false, feedback:"Boards are scored separately — a player builds one hand vs Board 1 and a separate hand vs Board 2."},
+            {text:"50% best Omaha Hi hand using Top Board + 50% best Omaha Hi hand using Bottom Board", correct:true, feedback:"Correct — each board is scored independently, and the pot splits between them."},
+            {text:"Best combined hand using cards from both boards at once", correct:false, feedback:"Boards are scored separately — a player builds one hand vs Top Board and a separate hand vs Bottom Board."},
             {text:"Whichever board has the better hand wins the entire pot", correct:false, feedback:"This is a 50/50 split by board, not winner-take-all."}
           ]
         }
@@ -2419,7 +2419,18 @@ function buildTable(game, isRedeal){
       gameName: game && game.name,
       sitOutSeat: sitOutSeatIndex
     });
-    window.RailMoney.postBlinds(moneyState, buttonSeatIndex, numPlayers);
+    if(moneyState.rules.studForcedBets){
+      // CONFIRMED house rule: stud posts a $5 bring-in from the door-card
+      // seat, not blinds. table-action determines WHO; money-state moves it.
+      const bringInSeat = window.RailAction ? window.RailAction.firstActor({
+        dealCat: game.dealCat, tableSeats: numPlayers, buttonSeat: null,
+        sitOutSeat: sitOutSeatIndex, foldedSeats: new Set(), street: 0,
+        upCards: {}, highBringsIn: game.name.indexOf('Stud Hi-Lo') !== 0
+      }) : activeSeatList[0];
+      window.RailMoney.postBringIn(moneyState, bringInSeat !== null ? bringInSeat : activeSeatList[0]);
+    } else {
+      window.RailMoney.postBlinds(moneyState, buttonSeatIndex, numPlayers);
+    }
   }
   seatChips = [];
   for(let i = 0; i < numPlayers; i++){
@@ -3252,7 +3263,18 @@ function renderShowdown(){
   // --- REAL PAYOUT ---
   // Each pot layer is judged only among the players who funded it, so a
   // short all-in can win the main pot without touching a side pot.
-  if(window.RailMoney && moneyState){
+  if(window.RailMoney && moneyState && r.family === 'doubleboard'){
+    // CONFIRMED house rule: HIGH ONLY on both boards, layer splits
+    // top/bottom, odd board chip to the TOP board. Deliberately NOT the
+    // hi/lo splitter — there is no low side in this game.
+    const topSide = r.sides.find(s => s.key === 'board1');
+    const bottomSide = r.sides.find(s => s.key === 'board2');
+    lastPayout = window.RailMoney.awardDoubleBoardPots(moneyState, foldedSeats, eligible => ({
+      topWinners: topSide ? topSide.winners.filter(s => eligible.indexOf(s) !== -1) : [],
+      bottomWinners: bottomSide ? bottomSide.winners.filter(s => eligible.indexOf(s) !== -1) : []
+    }));
+    refreshMoneyUI();
+  } else if(window.RailMoney && moneyState){
     const payoutInfo = window.RailMoney.awardPots(moneyState, foldedSeats, eligible => {
       const highSide = r.sides.find(s => s.key === 'high' || s.key === 'omaha' || s.key === 'badugi' || s.key === 'board1');
       const lowSide  = r.sides.find(s => s.key === 'low' || s.key === 'points' || s.key === 'draw' || s.key === 'board2');
