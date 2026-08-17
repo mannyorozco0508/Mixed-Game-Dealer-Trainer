@@ -1045,6 +1045,27 @@
     background:rgba(201,162,39,0.14);
   }
 
+  /* ---- Real money display ---- */
+  .pot-display{
+    position:absolute;
+    left:50%;
+    top:24%;
+    transform:translateX(-50%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--brass-300);
+    background:rgba(11,46,34,0.85);
+    border:1px solid rgba(201,162,39,0.35);
+    border-radius:2px;
+    padding:3px 9px;
+    white-space:nowrap;
+    pointer-events:none;
+  }
+  @media (min-width: 1000px) and (min-height: 501px){
+    .pot-display{ font-size:13.5px; padding:4px 12px; }
+  }
+
   /* ---- AI player action states ---- */
   .seat-pos.acting .seat-label{
     border-color:var(--chip-blue);
@@ -1096,6 +1117,7 @@
 <script src="ai-players.js"></script>
 <script src="showdown.js"></script>
 <script src="table-action.js"></script>
+<script src="money-state.js"></script>
 
 <header>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
@@ -2288,6 +2310,10 @@ let actionGeneration = 0;
 let pendingActionTimers = [];
 let handEndedByFolds = false;
 let seatLastAction = {};
+// Authoritative chip state for the current hand (integer whole dollars).
+let moneyState = null;
+let lastPayout = null;
+const STARTING_STACK = 1000;
 // Showdown state for the current hand.
 let showdownResult = null;
 let showdownBoard = [];
@@ -2381,11 +2407,23 @@ function buildTable(game, isRedeal){
   showdownBoard = [];
   showdownBoard2 = [];
 
-  // Cosmetic-only chip stacks (presentation data — NOT wired to any real
-  // betting math, per instruction). Regenerated fresh each hand.
+  // Authoritative chip stacks. These are REAL now — every wager mutates them
+  // and the total is conserved across the hand (see money-state.js).
+  const activeSeatList = [];
+  for(let i = 0; i < numPlayers; i++) if(i !== sitOutSeatIndex) activeSeatList.push(i);
+  if(window.RailMoney){
+    moneyState = window.RailMoney.createMoneyState({
+      seats: activeSeatList,
+      startingStack: STARTING_STACK,
+      dealCat: game && game.dealCat,
+      gameName: game && game.name,
+      sitOutSeat: sitOutSeatIndex
+    });
+    window.RailMoney.postBlinds(moneyState, buttonSeatIndex, numPlayers);
+  }
   seatChips = [];
   for(let i = 0; i < numPlayers; i++){
-    seatChips.push(i === sitOutSeatIndex ? 0 : 200 + Math.floor(Math.random() * 12) * 50);
+    seatChips.push(moneyState && moneyState.stacks[i] !== undefined ? moneyState.stacks[i] : 0);
   }
 
   // A brand new hand always starts with an empty table — reset the
@@ -2793,11 +2831,18 @@ function runNextAction(){
       loosenessBias: seatLoosenessFor(seat)
     });
     currentRound = window.RailAction.applyAction(currentRound, seat, action);
+    // Apply REAL money for this action before rendering it.
+    let amount = 0, wasAllIn = false;
+    if(window.RailMoney && moneyState && moneyState.stacks[seat] !== undefined){
+      amount = window.RailMoney.applyMoneyAction(moneyState, seat, action, activeStepIndex);
+      wasAllIn = moneyState.allIn[seat];
+    }
     if(action === 'fold'){
       foldedSeats.add(seat);
       markSeatFolded(seat);
     }
-    showSeatAction(seat, action);
+    showSeatAction(seat, action, amount, wasAllIn);
+    refreshMoneyUI();
     runNextAction();
   }, delay));
 }
@@ -2812,6 +2857,34 @@ function seatLoosenessFor(seat){
 function finishActionRound(){
   clearActingHighlight();
   if(currentRound && currentRound.endedByFolds) handEndedByFolds = true;
+  // Street betting is closed: return any uncalled excess, then sweep the
+  // street's chips into the pot. Contributions for side-pot layering are
+  // preserved in handContrib.
+  if(window.RailMoney && moneyState){
+    window.RailMoney.returnUncalledBet(moneyState, foldedSeats);
+    window.RailMoney.closeStreet(moneyState);
+    refreshMoneyUI();
+  }
+}
+
+// Updates every seat's stack label and the pot total from authoritative state.
+function refreshMoneyUI(){
+  if(!moneyState) return;
+  for(let i = 0; i < tableSeats; i++){
+    const el = seatEls[i];
+    if(!el) continue;
+    const chip = el.querySelector('.chip-stack');
+    if(chip && moneyState.stacks[i] !== undefined){
+      const street = moneyState.streetContrib[i] || 0;
+      chip.textContent = '$' + moneyState.stacks[i] + (street > 0 ? '  \u2022 $' + street : '');
+    }
+  }
+  const potEl = document.getElementById('potDisplay');
+  if(potEl){
+    const live = moneyState.seats.reduce((n,s) => n + moneyState.streetContrib[s], 0);
+    const total = moneyState.pot + live;
+    potEl.textContent = total > 0 ? 'POT $' + total : '';
+  }
 }
 
 function highlightActingSeat(seat){
@@ -2828,7 +2901,7 @@ function markSeatFolded(seat){
   const container = el.querySelector('.seat-cards');
   if(container) container.innerHTML = ''; // cards muck
 }
-function showSeatAction(seat, action){
+function showSeatAction(seat, action, amount, wasAllIn){
   const el = seatEls[seat];
   if(!el) return;
   let badge = el.querySelector('.action-badge');
@@ -2837,7 +2910,13 @@ function showSeatAction(seat, action){
     badge.className = 'action-badge';
     el.appendChild(badge);
   }
-  badge.textContent = action.toUpperCase();
+  // Action labels now carry real amounts — no more label without money.
+  let text = action.toUpperCase();
+  if(wasAllIn && amount > 0) text = 'ALL-IN $' + amount;
+  else if(action === 'call' && amount > 0) text = 'CALL $' + amount;
+  else if(action === 'bet' && amount > 0) text = 'BET $' + amount;
+  else if(action === 'raise' && moneyState) text = 'RAISE TO $' + moneyState.streetContrib[seat];
+  badge.textContent = text;
   badge.classList.remove('fresh');
   void badge.offsetWidth;
   badge.classList.add('fresh');
@@ -2964,6 +3043,7 @@ function renderHandShell(){
         <div class="poker-table" id="pokerTable">
           <div class="table-oval"></div>
           <div class="burn-pile" id="burnPile"></div>
+          <div class="pot-display" id="potDisplay"></div>
           <div class="board-row board1" id="boardRow1"></div>
           <div class="board-row board2" id="boardRow2"></div>
           <div id="seatsEl"></div>
@@ -3089,6 +3169,11 @@ function renderShowdown(){
     handEndedByFolds = true;
     const winner = stillIn.length ? stillIn[0] : null;
     showdownResult = null;
+    let wonAmount = 0;
+    if(window.RailMoney && moneyState && winner !== null){
+      wonAmount = window.RailMoney.awardToSinglePlayer(moneyState, winner);
+      refreshMoneyUI();
+    }
     const hud = document.getElementById('dealerHud');
     if(hud) hud.innerHTML = `<span class="hud-game">${currentScenario.name}</span><span class="hud-sep">\u00b7</span><span class="hud-task">Hand Complete</span>`;
     showDealerCue('Push Pot');
@@ -3097,7 +3182,7 @@ function renderShowdown(){
     qa.innerHTML = `
       <div class="showdown-panel">
         <div class="showdown-title">${winner !== null ? 'POT AWARDED \u2014 PLAYER ' + (winner+1) : 'HAND COMPLETE'}</div>
-        <div class="showdown-note">All other players folded, so there is no showdown. The pot is pushed to the last player standing.</div>
+        <div class="showdown-note">All other players folded, so there is no showdown. The pot is pushed to the last player standing.${wonAmount ? ' Pot won: <strong>$' + wonAmount + '</strong>.' : ''}</div>
         <button class="continue-hand-btn show" id="toSummaryBtn">Hand Complete</button>
       </div>`;
     document.getElementById('toSummaryBtn').addEventListener('click', () => renderSummary(true));
@@ -3163,6 +3248,22 @@ function renderShowdown(){
       ${sideHtml}
       <button class="continue-hand-btn show" id="toSummaryBtn">Push Pot \u2014 Hand Complete</button>
     </div>`;
+
+  // --- REAL PAYOUT ---
+  // Each pot layer is judged only among the players who funded it, so a
+  // short all-in can win the main pot without touching a side pot.
+  if(window.RailMoney && moneyState){
+    const payoutInfo = window.RailMoney.awardPots(moneyState, foldedSeats, eligible => {
+      const highSide = r.sides.find(s => s.key === 'high' || s.key === 'omaha' || s.key === 'badugi' || s.key === 'board1');
+      const lowSide  = r.sides.find(s => s.key === 'low' || s.key === 'points' || s.key === 'draw' || s.key === 'board2');
+      return {
+        highWinners: highSide ? highSide.winners.filter(s => eligible.indexOf(s) !== -1) : [],
+        lowWinners:  lowSide  ? lowSide.winners.filter(s => eligible.indexOf(s) !== -1)  : []
+      };
+    });
+    lastPayout = payoutInfo;
+    refreshMoneyUI();
+  }
 
   // Subtle seat emphasis on the winner(s)
   r.winners.forEach(seat => {
@@ -3294,6 +3395,24 @@ function handleAnswer(opt, optionList){
 
 // Compact showdown recap for the Hand Complete screen. Purely informational —
 // it never affects the dealer-decision scoring above it.
+// Concise financial result. Deliberately not a bankroll dashboard.
+function moneySummaryHtml(){
+  if(!moneyState) return '';
+  const seats = moneyState.seats;
+  if(!seats.length) return '';
+  const lines = seats.slice(0, 4).map(s => {
+    const start = moneyState.startingStacks[s];
+    const end = moneyState.stacks[s];
+    const diff = end - start;
+    const sign = diff > 0 ? '+' : '';
+    return 'Player ' + (s+1) + ': $' + end + ' (' + sign + diff + ')';
+  });
+  return `<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--slate-400);margin-top:10px;line-height:1.7;">
+    <div style="letter-spacing:0.1em;">CHIPS</div>
+    ${lines.map(l => `<div>${l}</div>`).join('')}
+  </div>`;
+}
+
 function showdownSummaryHtml(){
   if(!showdownResult || !showdownResult.ok) return '';
   const lines = showdownResult.sides.map(side => {
@@ -3333,6 +3452,7 @@ function renderSummary(shouldRecord){
         Correct: ${correctCount} &nbsp;\u00b7&nbsp; Mistakes: ${steps.length - correctCount} &nbsp;\u00b7&nbsp; Accuracy: ${accuracy}%
       </div>
       ${showdownSummaryHtml()}
+      ${moneySummaryHtml()}
       <div class="summary-msg">${msg}</div>
       <div class="summary-actions">
         <button class="summary-btn" id="dealAgainBtn">Deal Another Hand</button>
