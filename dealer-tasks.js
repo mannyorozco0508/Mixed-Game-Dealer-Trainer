@@ -37,7 +37,20 @@ function buildDealerTaskState(sim){
     completionTo:  sim.completionTo,
     bringInAmount: sim.bringInAmount,
     board:         (sim.board || []).slice(),
-    sidePots:      (sim.sidePots || []).map(p => ({ amount:p.amount, eligiblePlayerIds:(p.eligiblePlayerIds||[]).slice() }))
+    sidePots:      (sim.sidePots || []).map(p => ({ amount:p.amount, eligiblePlayerIds:(p.eligiblePlayerIds||[]).slice() })),
+    // Derived engine RESULTS. These are only present when the app has already
+    // computed them from validated math (pot-limit sizing, uncalled returns,
+    // payout allocation). Absent means "not knowable right now" — a task
+    // resolving to undefined simply cannot be asked, which is the correct
+    // outcome rather than fabricating a number.
+    potLimitMax:      sim.potLimitMax,
+    uncalledReturn:   sim.uncalledReturn,
+    highShare:        sim.highShare,
+    lowShare:         sim.lowShare,
+    lowQualifies:     sim.lowQualifies,
+    topBoardShare:    sim.topBoardShare,
+    bottomBoardShare: sim.bottomBoardShare,
+    payouts:          sim.payouts ? Object.assign({}, sim.payouts) : undefined
   };
   return Object.freeze(snap);
 }
@@ -74,6 +87,31 @@ const TASK_TYPES = {
       };
     },
     formatAnswer(v){ return v === null || v === undefined ? '' : 'Player ' + (v + 1); }
+  },
+
+  'select-seats': {
+    // Multi-seat selection. Answer is an ARRAY of seat indices; comparison
+    // is set-based so tap order never matters.
+    validate(task, given, state){
+      const expected = task.resolve ? task.resolve(state) : null;
+      const exp = Array.isArray(expected) ? expected.slice().sort((a,b)=>a-b) : [];
+      const giv = Array.isArray(given) ? given.slice().sort((a,b)=>a-b) : [];
+      const correct = exp.length === giv.length && exp.every((v,i) => v === giv[i]);
+      const missed = exp.filter(s => giv.indexOf(s) === -1);
+      const extra  = giv.filter(s => exp.indexOf(s) === -1);
+      return {
+        correct,
+        expected: exp,
+        given: giv,
+        missedSeats: missed,
+        extraSeats: extra,
+        feedback: buildExplanation(task, state, giv, exp, correct)
+      };
+    },
+    formatAnswer(v){
+      if(!Array.isArray(v) || v.length === 0) return 'none';
+      return v.slice().sort((a,b)=>a-b).map(s => 'Player ' + (s+1)).join(', ');
+    }
   },
 
   'numeric-amount': {
