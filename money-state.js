@@ -19,24 +19,67 @@
 
 const UNIT_NAME = 'whole dollars';
 
+/* ============================================================
+   HOUSE RULES — CONFIRMED vs UNCONFIRMED
+   ------------------------------------------------------------
+   Verified rules are stated explicitly here rather than buried inside
+   generic math or UI code, so they can be audited and changed in one place.
+   Anything still unverified is flagged so it is never taught as fact.
+   ============================================================ */
+const HOUSE_RULES = {
+  // CONFIRMED: 20/40 Stud family.
+  // The bring-in is a forced PARTIAL wager of $5. A player who completes
+  // brings the wager TO $20 total (not $5 + $20 = $25). A player who already
+  // posted the $5 bring-in therefore owes only the $15 difference to call.
+  stud20_40: {
+    confirmed: true,
+    bringIn: 5,
+    completionTo: 20   // TOTAL street wager after completion, not an increment
+  },
+  // CONFIRMED: Big O Double Board is HIGH ONLY on both boards.
+  // The pot layer splits between the top and bottom board; when a layer
+  // cannot divide evenly, the odd chip goes to the TOP board.
+  bigODoubleBoard: {
+    confirmed: true,
+    highOnly: true,
+    boardSplit: 'top-bottom',
+    oddBoardChip: 'top'
+  },
+  // NOT CONFIRMED: the 4-bet cap is a common convention, not a verified
+  // house rule for this room. It stays configurable and must never be
+  // presented to a trainee as established procedure.
+  raiseCap: {
+    confirmed: false,
+    betsPerStreet: 4,
+    note: 'UNCONFIRMED default — common convention, not verified for this room'
+  }
+};
+
 /* ---------- Betting structure registry ----------
    Keyed by dealCat so it is configuration, not scattered name checks.
    The 20/40 mixed rotation uses smallBet 20 / bigBet 40. bigBetFromStep is
    the scenario step at which the limit doubles. */
 const BETTING_RULES = {
-  holdem:         { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
-  bigO:           { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
+  holdem:         { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  bigO:           { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
   bigOPLO:        { type:'potlimit', sb:10, bb:20, raiseCap:null },
-  drawmaha:       { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:3, sb:10, bb:20, raiseCap:4 },
-  doubleBoard:    { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
-  pineapple:      { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
-  crazyPineapple: { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
-  draw4:          { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
-  draw5:          { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:4 },
+  drawmaha:       { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:3, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  doubleBoard:    { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  pineapple:      { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  crazyPineapple: { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  draw4:          { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
+  draw5:          { type:'limit',    smallBet:20, bigBet:40, bigBetFromStep:2, sb:10, bb:20, raiseCap:HOUSE_RULES.raiseCap.betsPerStreet },
   // Stud family: ante + bring-in rather than blinds. Marked partial because
   // the bring-in AMOUNT convention is house-specific and unconfirmed.
-  studSplit:      { type:'limit', smallBet:20, bigBet:40, bigBetFromStep:2, ante:5, bringIn:10, raiseCap:4, partial:true },
-  superStud:      { type:'limit', smallBet:20, bigBet:40, bigBetFromStep:2, ante:5, bringIn:10, raiseCap:4, partial:true }
+  // CONFIRMED 20/40 Stud: bring-in $5, completion TO $20 total.
+  studSplit:      { type:'limit', smallBet:20, bigBet:40, bigBetFromStep:2,
+                    bringIn:HOUSE_RULES.stud20_40.bringIn,
+                    completionTo:HOUSE_RULES.stud20_40.completionTo,
+                    raiseCap:HOUSE_RULES.raiseCap.betsPerStreet, studForcedBets:true },
+  superStud:      { type:'limit', smallBet:20, bigBet:40, bigBetFromStep:2,
+                    bringIn:HOUSE_RULES.stud20_40.bringIn,
+                    completionTo:HOUSE_RULES.stud20_40.completionTo,
+                    raiseCap:HOUSE_RULES.raiseCap.betsPerStreet, studForcedBets:true }
 };
 
 function rulesFor(dealCat, gameName){
@@ -89,9 +132,35 @@ function commit(ms, seat, amount){
 }
 
 /* ---------- Forced bets ---------- */
+/* Posts the Stud bring-in. bringInSeat is determined by the door card
+   (handled by table-action.js); this only moves the money.
+   CONFIRMED house rule: bring-in is $5, a forced PARTIAL wager. */
+function postBringIn(ms, bringInSeat){
+  const r = ms.rules;
+  if(!r.studForcedBets || bringInSeat === null || bringInSeat === undefined) return 0;
+  const amt = commit(ms, bringInSeat, r.bringIn);
+  ms.log.push({ seat:bringInSeat, action:'bring-in', amount:amt });
+  ms.lastRaiseSize = r.bringIn;
+  return amt;
+}
+
+/* Completes the bring-in TO the full small bet ($20 total, NOT +$20).
+   Returns the amount this seat actually added. */
+function completeBet(ms, seat){
+  const r = ms.rules;
+  if(!r.studForcedBets) return 0;
+  const owed = Math.max(0, r.completionTo - ms.streetContrib[seat]);
+  const amt = commit(ms, seat, owed);
+  ms.lastRaiseSize = r.completionTo - r.bringIn;
+  ms.raisesThisStreet++;
+  ms.log.push({ seat, action:'complete', amount:amt, to:r.completionTo });
+  return amt;
+}
+
 function postBlinds(ms, buttonSeat, tableSeats){
   const r = ms.rules;
   const active = ms.seats.filter(s => s !== ms.sitOutSeat);
+  if(r.studForcedBets) return; // stud uses postBringIn instead
   if(r.ante){
     active.forEach(s => { const a = commit(ms, s, r.ante); ms.log.push({ seat:s, action:'ante', amount:a }); });
     // Antes are dead money: sweep them into the pot and reopen the street.
@@ -231,6 +300,52 @@ function potLayers(ms, foldedSeats){
   return BE.buildSidePots(contributions);
 }
 
+/* ---------- Double Board payout ----------
+   CONFIRMED house rule: Big O Double Board is HIGH ONLY on both boards.
+   Each pot LAYER splits between the top and bottom board; if a layer cannot
+   divide evenly the odd chip goes to the TOP board. This is deliberately NOT
+   the hi/lo splitter — there is no low side and no low qualification here.
+
+   Note the two DISTINCT odd-chip decisions:
+     1. board allocation odd chip -> TOP board (this rule)
+     2. odd chip when a board's share is split among TIED winners ->
+        the engine's validated tied-winner rule
+   These must never be conflated. */
+function awardDoubleBoardPots(ms, foldedSeats, boardWinnersFor){
+  const layers = potLayers(ms, foldedSeats);
+  const payouts = {};
+  const detail = [];
+  const add = (seat, amt) => { payouts[seat] = (payouts[seat] || 0) + amt; };
+
+  layers.forEach(layer => {
+    const eligible = layer.eligiblePlayerIds;
+    if(eligible.length === 0) return;
+    if(eligible.length === 1){ add(eligible[0], layer.amount); return; }
+
+    // 1. Split THIS layer between the boards; odd chip to the top board.
+    const bottomShare = Math.floor(layer.amount / 2);
+    const topShare = layer.amount - bottomShare; // takes the odd chip
+    const res = boardWinnersFor(eligible) || {};
+    const topWinners = (res.topWinners || []).filter(s => eligible.indexOf(s) !== -1);
+    const bottomWinners = (res.bottomWinners || []).filter(s => eligible.indexOf(s) !== -1);
+
+    // 2. Award each board share among that board's winners, using the
+    //    engine's validated even-split/odd-chip logic for ties.
+    if(topWinners.length) BE.distributeEven(topShare, topWinners, add, 'first');
+    else eligible.forEach(() => {}); // no winner determinable: leave unawarded
+    if(bottomWinners.length) BE.distributeEven(bottomShare, bottomWinners, add, 'first');
+
+    detail.push({ layerAmount: layer.amount, topShare, bottomShare, topWinners, bottomWinners, eligible });
+  });
+
+  Object.keys(payouts).forEach(id => {
+    const seat = isNaN(+id) ? id : +id;
+    ms.stacks[seat] += payouts[seat];
+  });
+  ms.pot = 0;
+  return { layers, payouts, detail };
+}
+
 /* ---------- Payout ----------
    showdownFor(eligibleSeats) must return { highWinners, lowWinners } for
    that specific layer, so each layer is judged only among its contenders. */
@@ -273,6 +388,7 @@ function awardToSinglePlayer(ms, seat){
   return amount;
 }
 
+exports.HOUSE_RULES = HOUSE_RULES;
 exports.UNIT_NAME = UNIT_NAME;
 exports.BETTING_RULES = BETTING_RULES;
 exports.rulesFor = rulesFor;
@@ -291,6 +407,9 @@ exports.closeStreet = closeStreet;
 exports.returnUncalledBet = returnUncalledBet;
 exports.potLayers = potLayers;
 exports.awardPots = awardPots;
+exports.awardDoubleBoardPots = awardDoubleBoardPots;
+exports.postBringIn = postBringIn;
+exports.completeBet = completeBet;
 exports.awardToSinglePlayer = awardToSinglePlayer;
 
 })(
