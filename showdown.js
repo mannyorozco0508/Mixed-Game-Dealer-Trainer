@@ -334,8 +334,8 @@ function buildSides(family, ctx){
       const b1 = famOmahaHigh(ctx, ctx.board);
       const b2 = famOmahaHigh(ctx, ctx.board2);
       return [
-        { key:'board1', label:'Board 1', results:b1.results, winners:b1.winners },
-        { key:'board2', label:'Board 2', results:b2.results, winners:b2.winners }
+        { key:'board1', label:'Top Board', results:b1.results, winners:b1.winners },
+        { key:'board2', label:'Bottom Board', results:b2.results, winners:b2.winners }
       ];
     }
     default: throw new Error('Unknown showdown family: ' + family);
