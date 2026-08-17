@@ -1045,6 +1045,75 @@
     background:rgba(201,162,39,0.14);
   }
 
+  /* ---- Dealer task interaction (restrained; training, not a game show) ---- */
+  .seat-pos.seat-selectable{ cursor:pointer; }
+  .seat-pos.seat-selectable .seat-label{
+    border-color:rgba(62,110,147,0.7);
+    border-style:dashed;
+  }
+  .seat-pos.seat-selectable:hover .seat-label,
+  .seat-pos.seat-selectable:focus-visible .seat-label{
+    border-color:var(--chip-blue);
+    background:rgba(62,110,147,0.16);
+  }
+  .seat-pos.seat-selectable:focus-visible{ outline:2px solid var(--chip-blue); outline-offset:2px; }
+  .seat-pos.seat-correct .seat-label{
+    border-color:#4C8C5B;
+    background:rgba(76,140,91,0.2);
+    border-style:solid;
+  }
+  .seat-pos.seat-wrong .seat-label{
+    border-color:var(--chip-red);
+    background:rgba(166,48,58,0.18);
+    border-style:solid;
+  }
+  .task-hint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.06em;
+    color:var(--slate-400);
+    margin-bottom:10px;
+  }
+  .numeric-entry{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .numeric-prefix{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:18px;
+    color:var(--brass-300);
+  }
+  .numeric-input{
+    flex:1 1 auto;
+    min-width:0;
+    background:var(--felt-800);
+    border:1px solid rgba(237,230,214,0.25);
+    border-radius:2px;
+    color:var(--ivory-100);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:18px;
+    padding:12px 10px;
+    -moz-appearance:textfield;
+  }
+  .numeric-input::-webkit-outer-spin-button,
+  .numeric-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .numeric-input:focus{ outline:none; border-color:var(--chip-blue); }
+  .numeric-submit{
+    flex:0 0 auto;
+    background:var(--brass-500);
+    color:var(--felt-900);
+    border:none;
+    border-radius:2px;
+    padding:13px 18px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+
   /* ---- Real money display ---- */
   .pot-display{
     position:absolute;
@@ -1118,6 +1187,7 @@
 <script src="showdown.js"></script>
 <script src="table-action.js"></script>
 <script src="money-state.js"></script>
+<script src="dealer-tasks.js"></script>
 
 <header>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
@@ -1312,9 +1382,17 @@ function superStudSteps({showdownPrompt, showdownOptions}){
 }
 
 /* ---------------- Data ---------------- */
-function sevenStudSteps({bringInPrompt, bringInOptions, showdownPrompt, showdownOptions}){
+function sevenStudSteps({bringInPrompt, bringInOptions, bringInTaskType, bringInResolve, bringInExplain, showdownPrompt, showdownOptions}){
+  const bringInStep = { street:"3rd Street", prompt:bringInPrompt, options:bringInOptions };
+  // When a resolver is supplied the step becomes a live-table task: the
+  // correct seat is derived from simulation state, never stored here.
+  if(bringInTaskType){
+    bringInStep.taskType = bringInTaskType;
+    bringInStep.resolve = bringInResolve;
+    bringInStep.explain = bringInExplain;
+  }
   return [
-    { street:"3rd Street", prompt:bringInPrompt, options:bringInOptions },
+    bringInStep,
     {
       street:"4th Street",
       prompt:"3rd street action wraps up. What's next?",
@@ -1518,7 +1596,12 @@ const DATA = [
         "Showdown"
       ], notes:"Low brings in, high drives the action. Announce pairs as they hit.",
       scenario: sevenStudSteps({
-        bringInPrompt:"3rd street is out — 2 down, 1 up for everyone. Who brings it in?",
+        bringInPrompt:"3rd street is out. Tap the player who has the bring-in.",
+        bringInTaskType:"select-seat",
+        bringInResolve: s => s.bringInSeat,
+        bringInExplain: (s, given, expected, correct) => correct
+          ? "Correct — in Stud Hi-Lo the LOWEST card showing brings it in."
+          : "In Stud Hi-Lo the lowest door card brings it in. That's Player " + (expected + 1) + ", not Player " + (given + 1) + ".",
         bringInOptions:[
           {text:"The player showing the lowest card up", correct:true, feedback:"Correct — for Hi-Lo and 8-or-better, low brings it in and high drives the action from there."},
           {text:"The player showing the highest card up", correct:false, feedback:"That's the Razz rule. In Hi-Lo/8b it's the opposite — lowest card up brings it in."},
@@ -1540,7 +1623,12 @@ const DATA = [
         "Showdown"
       ], notes:"High brings in, low drives the action — the opposite of Hi-Lo bring-in. Announce pairs as they hit.",
       scenario: sevenStudSteps({
-        bringInPrompt:"3rd street is out — 2 down, 1 up for everyone. In Razz, who brings it in?",
+        bringInPrompt:"3rd street is out. Tap the player who has the bring-in.",
+        bringInTaskType:"select-seat",
+        bringInResolve: s => s.bringInSeat,
+        bringInExplain: (s, given, expected, correct) => correct
+          ? "Correct — in Razz the highest card showing is forced to bring it in."
+          : "In Razz the highest door card brings it in. That's Player " + (expected + 1) + ", not Player " + (given + 1) + ".",
         bringInOptions:[
           {text:"The player showing the highest card up", correct:true, feedback:"Right — in Razz, the worst-looking hand (highest card showing) is forced to bring it in and act first."},
           {text:"The player showing the lowest card up", correct:false, feedback:"That's the bring-in rule for Stud Hi-Lo and 8-or-better, not Razz. In Razz it flips — highest card up brings it in."},
@@ -2017,6 +2105,21 @@ const DATA = [
         },
         {
           street:"Pre-Flop",
+          taskType:"numeric-amount",
+          prompt:"Action is on the big blind. How much do they owe to call?",
+          resolve: s => {
+            const bb = s.buttonSeat === undefined || s.buttonSeat === null ? null : (s.buttonSeat + 2) % 7;
+            return bb !== null && s.callAmounts[bb] !== undefined ? s.callAmounts[bb] : 0;
+          },
+          explain: (s, given, expected) => {
+            const bb = (s.buttonSeat + 2) % 7;
+            return 'The big blind already has $' + (s.streetContrib[bb] || 0) +
+              ' posted and the wager is $' + s.currentBet + ', so they owe the $' + expected + ' difference.';
+          },
+          options:[]
+        },
+        {
+          street:"Pre-Flop",
           prompt:"Preflop betting wraps up. What's next?",
           options:[
             {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Right — Golden Rule, burn before every new street."},
@@ -2241,8 +2344,9 @@ const DEAL_PATTERNS = {
                     faceSeq:['DDD','DD','DD','DD'], discardKeep:{ 1:[0,1] } },
   crazyPineapple: { hole:[3,3,3,2],         upCount:[0,0,0,0],         board:[0,0,3,3],
                     faceSeq:['DDD','DDD','DDD','DD'], discardKeep:{ 3:[0,1] } },
-  holdem:         { hole:[0,2,2,2],         upCount:[0,0,0,0],         board:[0,0,3,5],
-                    faceSeq:['','DD','DD','DD'] }
+  // 5 steps: deal, call-amount task (no new cards), flop, turn/river, showdown
+  holdem:         { hole:[0,2,2,2,2],       upCount:[0,0,0,0,0],       board:[0,0,0,3,5],
+                    faceSeq:['','DD','DD','DD','DD'] }
 };
 
 
@@ -2313,6 +2417,43 @@ let seatLastAction = {};
 // Authoritative chip state for the current hand (integer whole dollars).
 let moneyState = null;
 let lastPayout = null;
+// --- Dealer task framework state ---
+let activeTaskSnapshot = null;   // frozen when a task opens; the answer cannot move
+let taskAnswered = false;        // blocks double submission
+let taskReviewRecords = [];      // immutable records so review works after the hand
+
+// Builds the read-only view a dynamic task interrogates. Only exposes what
+// the simulation can actually prove — nothing is fabricated.
+function currentSimSnapshot(){
+  if(!window.RailTasks) return null;
+  const callAmounts = {};
+  if(moneyState && window.RailMoney){
+    moneyState.seats.forEach(s => { callAmounts[s] = window.RailMoney.callAmount(moneyState, s); });
+  }
+  const activeSeats = [];
+  for(let i = 0; i < tableSeats; i++){
+    if(i !== sitOutSeatIndex && !foldedSeats.has(i)) activeSeats.push(i);
+  }
+  return window.RailTasks.buildDealerTaskState({
+    street: activeStepIndex,
+    buttonSeat: buttonSeatIndex,
+    sitOutSeat: sitOutSeatIndex,
+    activeSeats: activeSeats,
+    foldedSeats: foldedSeats,
+    allInSeats: moneyState ? moneyState.seats.filter(s => moneyState.allIn[s]) : [],
+    currentActor: currentRound ? currentRound.current : undefined,
+    bringInSeat: currentBringInSeat,
+    pot: moneyState ? moneyState.pot : undefined,
+    currentBet: moneyState ? moneyState.currentBet : undefined,
+    streetContrib: moneyState ? moneyState.streetContrib : {},
+    stacks: moneyState ? moneyState.stacks : {},
+    callAmounts: callAmounts,
+    completionTo: moneyState ? moneyState.rules.completionTo : undefined,
+    bringInAmount: moneyState ? moneyState.rules.bringIn : undefined,
+    board: tableBoardCards
+  });
+}
+let currentBringInSeat = null;
 const STARTING_STACK = 1000;
 // Showdown state for the current hand.
 let showdownResult = null;
@@ -2403,6 +2544,9 @@ function buildTable(game, isRedeal){
   handEndedByFolds = false;
   seatLastAction = {};
   cancelPendingActions();
+  currentBringInSeat = null;
+  taskReviewRecords = [];
+  taskAnswered = false;
   showdownResult = null;
   showdownBoard = [];
   showdownBoard2 = [];
@@ -2427,7 +2571,8 @@ function buildTable(game, isRedeal){
         sitOutSeat: sitOutSeatIndex, foldedSeats: new Set(), street: 0,
         upCards: {}, highBringsIn: game.name.indexOf('Stud Hi-Lo') !== 0
       }) : activeSeatList[0];
-      window.RailMoney.postBringIn(moneyState, bringInSeat !== null ? bringInSeat : activeSeatList[0]);
+      currentBringInSeat = bringInSeat !== null ? bringInSeat : activeSeatList[0];
+      window.RailMoney.postBringIn(moneyState, currentBringInSeat);
     } else {
       window.RailMoney.postBlinds(moneyState, buttonSeatIndex, numPlayers);
     }
@@ -3353,15 +3498,137 @@ function renderStepContent(step, tableIndex, isLastOfRun){
   activeStepIndex = tableIndex;
 
   const optionList = document.getElementById('optionList');
-  opts.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.className = 'option-btn';
-    btn.textContent = opt.text;
-    btn.addEventListener('click', () => handleAnswer(opt, optionList));
-    optionList.appendChild(btn);
-  });
+  taskAnswered = false;
+  clearTaskInteraction();
+
+  // Dynamic tasks lock a state snapshot the moment they open, so a late AI
+  // callback cannot change the correct answer while the trainee is thinking.
+  const taskType = window.RailTasks ? window.RailTasks.typeOf(step) : 'multiple-choice';
+  if(window.RailTasks && window.RailTasks.isDynamic(step)){
+    activeTaskSnapshot = currentSimSnapshot();
+    if(taskType === 'select-seat') renderSelectSeatTask(step, optionList);
+    else if(taskType === 'numeric-amount') renderNumericTask(step, optionList);
+  } else {
+    activeTaskSnapshot = null;
+    opts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.textContent = opt.text;
+      btn.addEventListener('click', () => handleAnswer(opt, optionList));
+      optionList.appendChild(btn);
+    });
+  }
 
   scenarioBody.scrollTop = 0;
+}
+
+/* ---------------- Dynamic dealer task rendering ---------------- */
+
+// Makes the actual player seats the answer interface. No duplicate row of
+// seat buttons under the table — the table IS the input.
+function renderSelectSeatTask(step, optionList){
+  optionList.innerHTML = '<div class="task-hint">Tap the player on the table.</div>';
+  for(let i = 0; i < tableSeats; i++){
+    if(i === sitOutSeatIndex) continue;
+    const el = seatEls[i];
+    if(!el) continue;
+    el.classList.add('seat-selectable');
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Select Player ' + (i + 1));
+    const submit = () => submitSeatAnswer(step, i, optionList);
+    el._taskHandler = submit;
+    el.addEventListener('click', submit);
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); submit(); }
+    });
+  }
+}
+
+function submitSeatAnswer(step, seat, optionList){
+  if(taskAnswered) return;   // block double submission
+  taskAnswered = true;
+  const result = window.RailTasks.validateDealerTask(step, seat, activeTaskSnapshot);
+  if(seatEls[seat]) seatEls[seat].classList.add(result.correct ? 'seat-correct' : 'seat-wrong');
+  if(!result.correct && seatEls[result.expected]) seatEls[result.expected].classList.add('seat-correct');
+  finishTaskAnswer(result, optionList);
+}
+
+// Compact amount entry. Uses a real number input so hardware keyboards and
+// assistive tech work, with quick-tap chips for common amounts on mobile.
+function renderNumericTask(step, optionList){
+  optionList.innerHTML = `
+    <div class="task-hint">Enter the amount.</div>
+    <div class="numeric-entry">
+      <span class="numeric-prefix">$</span>
+      <input type="number" inputmode="numeric" step="1" min="0" id="taskAmount"
+             class="numeric-input" aria-label="Amount in dollars">
+      <button class="numeric-submit" id="taskSubmit">Submit</button>
+    </div>`;
+  const input = document.getElementById('taskAmount');
+  const submit = () => {
+    if(taskAnswered) return;
+    taskAnswered = true;
+    const result = window.RailTasks.validateDealerTask(step, input.value, activeTaskSnapshot);
+    finishTaskAnswer(result, optionList);
+  };
+  document.getElementById('taskSubmit').addEventListener('click', submit);
+  input.addEventListener('keydown', function(e){ if(e.key === 'Enter') submit(); });
+  input.focus();
+}
+
+// Dynamic tasks feed the SAME scoring and review pipeline as legacy questions.
+function finishTaskAnswer(result, optionList){
+  if(result.correct){
+    if(!reviewMode) correctCount++;
+    playCorrectSound();
+  } else {
+    if(!reviewMode){
+      missedSteps.push(activeStepIndex);
+      taskReviewRecords.push(result.reviewRecord);
+    }
+    playIncorrectSound();
+  }
+
+  const feedbackBox = document.getElementById('feedbackBox');
+  const feedbackLabel = document.getElementById('feedbackLabel');
+  const feedbackText = document.getElementById('feedbackText');
+  feedbackBox.className = 'feedback-box show ' + (result.correct ? 'correct' : 'incorrect');
+  feedbackLabel.textContent = result.correct ? 'Correct' : 'Not quite';
+  feedbackText.textContent = result.feedback ||
+    (result.correct ? '' : 'The correct answer was ' + result.reviewRecord.expectedLabel + '.');
+
+  const advance = () => {
+    clearTaskInteraction();
+    if(reviewMode){ reviewPos++; } else { stepIndex++; }
+    renderStep();
+    if(!reviewMode && currentScenario && stepIndex < currentScenario.scenario.length){
+      startActionRound();
+    }
+  };
+  if(result.correct){
+    setTimeout(advance, 900);
+  } else {
+    const btn = document.getElementById('continueHandBtn');
+    if(btn){ btn.classList.add('show'); btn.onclick = advance; }
+  }
+}
+
+// Removes every trace of a task's interaction state so nothing leaks into
+// the next street or hand.
+function clearTaskInteraction(){
+  seatEls.forEach(el => {
+    if(!el) return;
+    el.classList.remove('seat-selectable', 'seat-correct', 'seat-wrong');
+    el.removeAttribute('role');
+    el.removeAttribute('tabindex');
+    el.removeAttribute('aria-label');
+    if(el._taskHandler){
+      el.removeEventListener('click', el._taskHandler);
+      el._taskHandler = null;
+    }
+  });
+  activeTaskSnapshot = null;
 }
 
 function handleAnswer(opt, optionList){
