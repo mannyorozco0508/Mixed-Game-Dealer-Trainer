@@ -1487,6 +1487,26 @@ function superStudSteps({showdownPrompt, showdownOptions}){
       ]
     },
     {
+      street:"Discard/Pat",
+      difficulty:2,
+      prompt:"A player declares Pat, then a second player also declares Pat. Who acts first from here?",
+      options:[
+        {text:"The bring-in acts as the button once there are multiple Pats", correct:true, feedback:"Correct. A single Pat drives the action, but with two the convention falls back to the bring-in acting as the button."},
+        {text:"Whichever player declared Pat first", correct:false, feedback:"Declaration order only settles a single Pat. With multiple Pats the bring-in takes over as the reference point."},
+        {text:"The player showing the best board", correct:false, feedback:"That is the normal stud rule, which the Pat declaration overrides."}
+      ]
+    },
+    {
+      street:"5th Street",
+      difficulty:3,
+      prompt:"A Pat player has taken no cards since 3rd street while others have drawn. How many cards does the Pat player hold at showdown?",
+      options:[
+        {text:"Five — a Pat player locks their hand and receives no further cards", correct:true, feedback:"Correct. Pat means exactly that: the five-card hand is fixed. Everyone else builds to seven while the Pat player stands still."},
+        {text:"Seven, the same as everyone else", correct:false, feedback:"A Pat player forgoes all further cards. That is the trade-off for locking in early."},
+        {text:"Six — they skip only the final down card", correct:false, feedback:"Pat stops all draws from the moment it is declared, not just the last one."}
+      ]
+    },
+    {
       street:"4th–7th Street",
       prompt:"Streets 4 through 7 are dealt one at a time. What do you do before each one?",
       options:[
@@ -1941,6 +1961,26 @@ const DATA = [
             {text:"They use exactly 2 hole cards + 3 board cards — A-2 with 7-4-2 gives 7-4-3-2-A, which qualifies (8-or-better)", correct:true, feedback:"Right. The low still obeys the 2+3 rule, and any five unpaired cards eight-or-lower qualify."},
             {text:"No qualifying low, because the board only has three low cards", correct:false, feedback:"Three low cards on the board is exactly enough — the player supplies the other two from their hand."},
             {text:"They can use A-2-3 from hand plus 4-2 from the board", correct:false, feedback:"That's three hole cards. Big O requires exactly two from hand for the low as well as the high."}
+          ]
+        },
+        {
+          street:"Turn",
+          difficulty:2,
+          prompt:"Three players are live. The board is 8-7-2 with two hearts. A player asks whether a low is still possible. What determines it?",
+          options:[
+            {text:"Three board cards eight-or-lower must be available — 8-7-2 already qualifies", correct:true, feedback:"Right. The board must supply three low cards for any low to exist, and 8-7-2 does. Two more low cards are not required."},
+            {text:"At least four low cards must appear on the board", correct:false, feedback:"Only three are needed, because the player supplies exactly two from their hand."},
+            {text:"A low is impossible once a flush draw is present", correct:false, feedback:"Flushes and lows are independent in Big O — straights and flushes never count against the low."}
+          ]
+        },
+        {
+          street:"Showdown",
+          difficulty:3,
+          prompt:"Two players tie for the best low and a third wins the high. The pot is $301. How is it distributed?",
+          options:[
+            {text:"High takes $151, the two low winners take $75 each", correct:true, feedback:"Correct. The pot halves to $150 low and $151 high (odd chip to high), then the low half quarters between the tied players."},
+            {text:"High takes $150, low winners take $75.50 each", correct:false, feedback:"Chips do not split into halves. The odd chip goes to the high side, leaving an even $150 to quarter."},
+            {text:"Each of the three players receives $100", correct:false, feedback:"This is a split-pot game, not a three-way chop. The high half and low half are awarded separately."}
           ]
         },
         {
@@ -2417,6 +2457,26 @@ const DATA = [
           ]
         },
         {
+          street:"Turn",
+          difficulty:2,
+          prompt:"A player bets, a second raises, and the original bettor now wants to raise again. Is the action still open to them?",
+          options:[
+            {text:"Yes — a raise reopens the action to everyone who has already acted", correct:true, feedback:"Correct. A legitimate raise reopens betting for all live players, including the original bettor. This is the rule dealers misapply most often."},
+            {text:"No — they already acted this street", correct:false, feedback:"Acting once does not close a player out. A raise behind them reopens their action."},
+            {text:"Only if the raise was at least double the bet", correct:false, feedback:"Sizing determines whether a raise is legal, not whether it reopens action. A full legal raise always reopens it."}
+          ]
+        },
+        {
+          street:"River",
+          difficulty:3,
+          prompt:"Three players are all-in for different amounts and one folded after contributing. Which players compete for the main pot?",
+          options:[
+            {text:"Every player who contributed to that layer and has not folded", correct:true, feedback:"Correct. Eligibility follows contribution level and live status. The folded player's chips stay in the pot but they can never win any layer."},
+            {text:"Only the two players with the largest stacks", correct:false, feedback:"Stack size is irrelevant to the main pot. The shortest all-in caps it, and everyone who matched that amount competes."},
+            {text:"All four, since the folded player contributed", correct:false, feedback:"Contributing funds the pot but does not grant eligibility. A folded hand can never be awarded any portion."}
+          ]
+        },
+        {
           street:"Showdown",
           prompt:"River betting's done. What determines the winner?",
           options:[
@@ -2611,8 +2671,9 @@ const DEAL_PATTERNS = {
                     faceSeq:['DDU','DDU','DDU','DDUU','DDUUUU','DDUUUUD'] },
   // Super Stud: four down then the fifth face up, discard two DOWN cards
   // (keeping the up card), then up cards until four are exposed, final down.
-  superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0],
-                    faceSeq:['','DDDDU','DDU','DDU','DDU','DDUUUUD'],
+  // 8 steps: deal, discard, two Pat-rule questions (no new cards), then streets.
+  superStud:      { hole:[0,5,3,3,3,3,3,7], upCount:[0,1,1,1,1,1,1,4], board:[0,0,0,0,0,0,0,0],
+                    faceSeq:['','DDDDU','DDU','DDU','DDU','DDU','DDU','DDUUUUD'],
                     discardKeep:{ 2:[0,1,4] } },
   // 7 steps for variants carrying a draw-side scoring question (no new cards
   // on that step); Drawmaha Hi has 6 and simply never reaches index 6.
@@ -2622,8 +2683,9 @@ const DEAL_PATTERNS = {
   // Both Hi-Lo and PLO share this dealing shape — they differ only at showdown.
   // Six entries because Big O Hi-Lo has a sixth showdown question; PLO reads
   // the first five and simply never advances to index 5.
-  bigO:           { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,4,5,5],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  // 8 steps for Big O Hi-Lo's fuller ladder; Big O PLO has 6 and stops early.
+  bigO:           { hole:[0,5,5,5,5,5,5,5], upCount:[0,0,0,0,0,0,0,0], board:[0,0,3,4,5,5,5,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5],
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // 6 steps: deal(3), discard to 2, two ruling questions (no new cards), flop, turn/river
@@ -2633,8 +2695,9 @@ const DEAL_PATTERNS = {
   crazyPineapple: { hole:[3,3,3,3,3,2],     upCount:[0,0,0,0,0,0],     board:[0,0,3,3,3,5],
                     faceSeq:['DDD','DDD','DDD','DDD','DDD','DD'], discardKeep:{ 5:[0,1] } },
   // 5 steps: deal, call-amount task (no new cards), flop, turn/river, showdown
-  holdem:         { hole:[0,2,2,2,2],       upCount:[0,0,0,0,0],       board:[0,0,0,3,5],
-                    faceSeq:['','DD','DD','DD','DD'] }
+  // 7 steps: deal, call-amount task, flop, two rule questions, turn/river, showdown.
+  holdem:         { hole:[0,2,2,2,2,2,2],   upCount:[0,0,0,0,0,0,0],   board:[0,0,0,3,3,4,5],
+                    faceSeq:['','DD','DD','DD','DD','DD','DD'] }
 };
 
 
