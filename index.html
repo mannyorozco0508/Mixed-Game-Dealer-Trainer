@@ -1376,6 +1376,16 @@ function tripleDrawSteps({downCards, extraStep, showdownPrompt, showdownOptions}
       ]
     },
     {
+      street:"Draw 2",
+      difficulty:3,
+      prompt:"Mid-hand the deck runs short during a draw. Which cards may legitimately be reshuffled back in?",
+      options:[
+        {text:"The muck, the burn cards, and the last card off the deck — never this round's discards", correct:true, feedback:"Correct. This round's discards stay out because they are still live information for the hand in progress. Everything already dead can come back."},
+        {text:"Everything not currently in a player's hand, including this round's discards", correct:false, feedback:"This round's discards are the one exclusion. Returning them would put cards a player just released back into play in the same hand."},
+        {text:"Only the burn cards", correct:false, feedback:"The muck and the deck's last card are also eligible. Restricting to burns alone often will not produce enough cards."}
+      ]
+    },
+    {
       street:"Draw 3",
       prompt:"Draw 2 betting wraps up. What's next?",
       options:[
@@ -1426,6 +1436,16 @@ function drawmahaCommonSteps(){
         {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. One burn covers both the turn card and the players' replacement cards — Drawmaha's signature quirk."},
         {text:"Burn once for the turn, burn again before replacements", correct:false, feedback:"Drawmaha only burns once here — the single burn covers both actions."},
         {text:"No burn needed since players are just replacing cards", correct:false, feedback:"You do burn once — for the turn card. It just doesn't repeat for the replacements."}
+      ]
+    },
+    {
+      street:"Draw Declared",
+      difficulty:3,
+      prompt:"You burn once, deal the turn, then start distributing replacements. A player says you owe a second burn before their cards. How do you handle it?",
+      options:[
+        {text:"Explain that one burn covers both the turn and the replacements in this game, and continue", correct:true, feedback:"Correct. The single burn is the defining Drawmaha quirk. A dealer who knows it can state it calmly and keep the hand moving rather than second-guessing mid-deal."},
+        {text:"Burn again to be safe — an extra burn never hurts", correct:false, feedback:"An unnecessary burn removes a card that belongs in play and teaches the table the wrong procedure. Being right matters more than appearing accommodating."},
+        {text:"Stop the hand and call the floor", correct:false, feedback:"This is settled procedure, not a ruling. Calling the floor for a known rule slows the game and undermines confidence in the box."}
       ]
     },
     {
@@ -1562,6 +1582,16 @@ function sevenStudSteps({bringInPrompt, bringInOptions, bringInTaskType, bringIn
         {text:"Announce it out loud — e.g. \"pair of fives are new, kings are high\"", correct:true, feedback:"Right — always call out new pairs as they hit, so the whole table knows the board."},
         {text:"Say nothing, players can see it themselves", correct:false, feedback:"Dealers are expected to announce pairs proactively — don't rely on players to notice."},
         {text:"Only mention it if a player asks", correct:false, feedback:"It should be called out automatically, not just on request."}
+      ]
+    },
+    {
+      street:"6th Street",
+      difficulty:3,
+      prompt:"Six players are still live on 6th street and you count the stub. There are not enough cards to give everyone a 7th street card. What is the correct sequence of remedies?",
+      options:[
+        {text:"Reshuffle the burns and muck first; only if that still falls short, deal one community card face up for everyone", correct:true, feedback:"Correct. Recovering cards comes before changing the game. The shared community card is the last resort, not the first move, and it goes to every remaining player at once."},
+        {text:"Deal a community card immediately to save time", correct:false, feedback:"That skips the recovery step. Reshuffling burns and muck often produces enough cards, and changing the deal shape should always be the final option."},
+        {text:"Deal 7th street to as many players as the stub allows, in order", correct:false, feedback:"Never leave a live player short. Every remaining player must receive a 7th card, or all of them share a community card."}
       ]
     },
     {
@@ -2258,6 +2288,16 @@ const DATA = [
           ]
         },
         {
+          street:"River",
+          difficulty:3,
+          prompt:"A pot layer of $201 must be split between the boards, and two players tie for the Top Board. How many separate odd-chip decisions are involved?",
+          options:[
+            {text:"Two — the odd chip between boards goes to the Top Board, then the tied Top winners split their share under the tie rule", correct:true, feedback:"Correct. These are independent decisions and conflating them is a common payout error. Board allocation resolves first, then ties within a board."},
+            {text:"One — the odd chip simply goes to whoever wins the Top Board", correct:false, feedback:"That collapses two rules into one. The board split happens first, then the tie within that board is resolved separately."},
+            {text:"None — an odd pot is split evenly and the extra chip stays in the rack", correct:false, feedback:"Every chip is awarded. Odd chips always have a defined destination."}
+          ]
+        },
+        {
           street:"Showdown",
           prompt:"Final betting's done. What's the payout?",
           options:[
@@ -2657,18 +2697,18 @@ function cardHtml(c, mini, delayMs, dx, dy){
 // discard. Super Stud discards two DOWN cards and keeps the up card, so the
 // renderer cannot simply drop cards from the end of the hand.
 const DEAL_PATTERNS = {
-  draw4:          { hole:[0,4,4,4,4],       upCount:[0,0,0,0,0],       board:[0,0,0,0,0],
-                    faceSeq:['','DDDD','DDDD','DDDD','DDDD'] },
+  draw4:          { hole:[0,4,4,4,4,4],     upCount:[0,0,0,0,0,0],     board:[0,0,0,0,0,0],
+                    faceSeq:['','DDDD','DDDD','DDDD','DDDD','DDDD'] },
   // 6 steps for games carrying a scoring question (no new cards on that step);
   // games with 5 steps simply never reach index 5.
-  draw5:          { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,0,0,0,0],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  draw5:          { hole:[0,5,5,5,5,5,5],   upCount:[0,0,0,0,0,0,0],   board:[0,0,0,0,0,0,0],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // Real 7-card stud: 2 down + 1 up on 3rd street, up cards on 4th-6th,
   // 7th street dealt face down.
   // 6 steps: bring-in seat task, completion-owed task (no new cards), then
   // 4th/6th/7th street dealing.
-  studSplit:      { hole:[3,3,3,4,6,7],     upCount:[1,1,1,2,4,4],     board:[0,0,0,0,0,0],
-                    faceSeq:['DDU','DDU','DDU','DDUU','DDUUUU','DDUUUUD'] },
+  studSplit:      { hole:[3,3,3,4,6,6,7],   upCount:[1,1,1,2,4,4,4],   board:[0,0,0,0,0,0,0],
+                    faceSeq:['DDU','DDU','DDU','DDUU','DDUUUU','DDUUUU','DDUUUUD'] },
   // Super Stud: four down then the fifth face up, discard two DOWN cards
   // (keeping the up card), then up cards until four are exposed, final down.
   // 8 steps: deal, discard, two Pat-rule questions (no new cards), then streets.
@@ -2677,8 +2717,8 @@ const DEAL_PATTERNS = {
                     discardKeep:{ 2:[0,1,4] } },
   // 7 steps for variants carrying a draw-side scoring question (no new cards
   // on that step); Drawmaha Hi has 6 and simply never reaches index 6.
-  drawmaha:       { hole:[0,5,5,5,5,5,5],   upCount:[0,0,0,0,0,0,0],   board:[0,0,3,3,4,5,5],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  drawmaha:       { hole:[0,5,5,5,5,5,5,5], upCount:[0,0,0,0,0,0,0,0], board:[0,0,3,3,3,4,5,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // Big O: five face-down hole cards, standard complete community board.
   // Both Hi-Lo and PLO share this dealing shape — they differ only at showdown.
   // Six entries because Big O Hi-Lo has a sixth showdown question; PLO reads
@@ -2686,8 +2726,8 @@ const DEAL_PATTERNS = {
   // 8 steps for Big O Hi-Lo's fuller ladder; Big O PLO has 6 and stops early.
   bigO:           { hole:[0,5,5,5,5,5,5,5], upCount:[0,0,0,0,0,0,0,0], board:[0,0,3,4,5,5,5,5],
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
-  doubleBoard:    { hole:[0,5,5,5,5],       upCount:[0,0,0,0,0],       board:[0,0,3,4,5], board2:[0,0,3,4,5],
-                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
+  doubleBoard:    { hole:[0,5,5,5,5,5],     upCount:[0,0,0,0,0,0],     board:[0,0,3,4,5,5], board2:[0,0,3,4,5,5],
+                    faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // 6 steps: deal(3), discard to 2, two ruling questions (no new cards), flop, turn/river
   pineapple:      { hole:[3,2,2,2,2,2],     upCount:[0,0,0,0,0,0],     board:[0,0,0,0,3,5],
                     faceSeq:['DDD','DD','DD','DD','DD','DD'], discardKeep:{ 1:[0,1] } },
