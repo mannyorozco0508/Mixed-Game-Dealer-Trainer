@@ -1057,6 +1057,11 @@
     background:rgba(62,110,147,0.16);
   }
   .seat-pos.seat-selectable:focus-visible{ outline:2px solid var(--chip-blue); outline-offset:2px; }
+  .seat-pos.seat-chosen .seat-label{
+    border-color:var(--chip-blue);
+    background:rgba(62,110,147,0.22);
+    border-style:solid;
+  }
   .seat-pos.seat-correct .seat-label{
     border-color:#4C8C5B;
     background:rgba(76,140,91,0.2);
@@ -1188,6 +1193,7 @@
 <script src="table-action.js"></script>
 <script src="money-state.js"></script>
 <script src="dealer-tasks.js"></script>
+<script src="money-tasks.js"></script>
 
 <header>
   <button id="soundToggle" style="position:absolute;top:14px;right:14px;background:none;border:1px solid rgba(237,230,214,0.25);color:var(--ivory-200);border-radius:2px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;">\uD83D\uDD0A SOUND ON</button>
@@ -1393,6 +1399,21 @@ function sevenStudSteps({bringInPrompt, bringInOptions, bringInTaskType, bringIn
   }
   return [
     bringInStep,
+    {
+      street:"3rd Street",
+      taskType:"numeric-amount",
+      difficulty:2,
+      prompt:"A player completes the bring-in. How much MORE does the bring-in owe to call?",
+      resolve: s => (s.bringInSeat === null || s.bringInSeat === undefined)
+        ? null : s.callAmounts[s.bringInSeat],
+      explain: (s, given, expected, correct) => {
+        const posted = (s.streetContrib && s.streetContrib[s.bringInSeat]) || 0;
+        const base = 'The bring-in already has $' + posted + ' in. Completion is TO $' +
+          s.completionTo + ' total, not on top of it, so they owe $' + expected + ' more.';
+        return correct ? 'Correct — ' + base : base;
+      },
+      options:[]
+    },
     {
       street:"4th Street",
       prompt:"3rd street action wraps up. What's next?",
@@ -1796,6 +1817,23 @@ const DATA = [
             {text:"Deal the flop with no burn", correct:false, feedback:"Always burn before the board."},
             {text:"Deal a fourth street card to each player", correct:false, feedback:"Big O is a flop game — all remaining cards go to the shared board, not to players."}
           ]
+        },
+        {
+          street:"Flop",
+          taskType:"numeric-amount",
+          difficulty:2,
+          prompt:'A player says "POT." What is the maximum total wager?',
+          resolve: s => s.potLimitMax,
+          explain: (s, given, expected, correct) => {
+            const seat = s.currentActor;
+            const toCall = (s.callAmounts && s.callAmounts[seat]) || 0;
+            const live = Object.keys(s.streetContrib).reduce((n,k) => n + s.streetContrib[k], 0);
+            const potNow = (s.pot || 0) + live;
+            const base = 'There is $' + potNow + ' on the table. They first call $' + toCall +
+              ', then may raise by that new total — maximum total wager $' + expected + '.';
+            return correct ? 'Correct — ' + base : base;
+          },
+          options:[]
         },
         {
           street:"Flop",
@@ -2323,8 +2361,10 @@ const DEAL_PATTERNS = {
                     faceSeq:['','DDDDD','DDDDD','DDDDD','DDDDD'] },
   // Real 7-card stud: 2 down + 1 up on 3rd street, up cards on 4th-6th,
   // 7th street dealt face down.
-  studSplit:      { hole:[3,3,4,6,7],       upCount:[1,1,2,4,4],       board:[0,0,0,0,0],
-                    faceSeq:['DDU','DDU','DDUU','DDUUUU','DDUUUUD'] },
+  // 6 steps: bring-in seat task, completion-owed task (no new cards), then
+  // 4th/6th/7th street dealing.
+  studSplit:      { hole:[3,3,3,4,6,7],     upCount:[1,1,1,2,4,4],     board:[0,0,0,0,0,0],
+                    faceSeq:['DDU','DDU','DDU','DDUU','DDUUUU','DDUUUUD'] },
   // Super Stud: four down then the fifth face up, discard two DOWN cards
   // (keeping the up card), then up cards until four are exposed, final down.
   superStud:      { hole:[0,5,3,3,3,7],     upCount:[0,1,1,1,1,4],     board:[0,0,0,0,0,0],
@@ -2450,7 +2490,18 @@ function currentSimSnapshot(){
     callAmounts: callAmounts,
     completionTo: moneyState ? moneyState.rules.completionTo : undefined,
     bringInAmount: moneyState ? moneyState.rules.bringIn : undefined,
-    board: tableBoardCards
+    board: tableBoardCards,
+    // Derived engine RESULTS — computed by validated math, never by a task.
+    sidePots: (moneyState && window.RailMoney) ? window.RailMoney.potLayers(moneyState, foldedSeats) : [],
+    potLimitMax: (moneyState && window.RailMoney && currentRound && currentRound.current !== null &&
+                  moneyState.rules.type === 'potlimit')
+      ? window.RailMoney.maxRaiseTo(moneyState, currentRound.current, activeStepIndex)
+      : undefined,
+    payouts: lastPayout ? lastPayout.payouts : undefined,
+    topBoardShare: (lastPayout && lastPayout.detail && lastPayout.detail[0])
+      ? lastPayout.detail[0].topShare : undefined,
+    bottomBoardShare: (lastPayout && lastPayout.detail && lastPayout.detail[0])
+      ? lastPayout.detail[0].bottomShare : undefined
   });
 }
 let currentBringInSeat = null;
@@ -3507,6 +3558,7 @@ function renderStepContent(step, tableIndex, isLastOfRun){
   if(window.RailTasks && window.RailTasks.isDynamic(step)){
     activeTaskSnapshot = currentSimSnapshot();
     if(taskType === 'select-seat') renderSelectSeatTask(step, optionList);
+    else if(taskType === 'select-seats') renderSelectSeatsTask(step, optionList);
     else if(taskType === 'numeric-amount') renderNumericTask(step, optionList);
   } else {
     activeTaskSnapshot = null;
@@ -3543,6 +3595,44 @@ function renderSelectSeatTask(step, optionList){
       if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); submit(); }
     });
   }
+}
+
+// Multi-seat selection: tapping toggles, Submit validates the whole set.
+function renderSelectSeatsTask(step, optionList){
+  const chosen = new Set();
+  optionList.innerHTML = `
+    <div class="task-hint">Tap every eligible player, then Submit.</div>
+    <button class="numeric-submit" id="seatsSubmit">Submit</button>`;
+
+  for(let i = 0; i < tableSeats; i++){
+    if(i === sitOutSeatIndex) continue;
+    const el = seatEls[i];
+    if(!el) continue;
+    el.classList.add('seat-selectable');
+    el.setAttribute('role', 'checkbox');
+    el.setAttribute('aria-checked', 'false');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Player ' + (i + 1));
+    const toggle = () => {
+      if(taskAnswered) return;
+      if(chosen.has(i)){ chosen.delete(i); el.classList.remove('seat-chosen'); el.setAttribute('aria-checked','false'); }
+      else { chosen.add(i); el.classList.add('seat-chosen'); el.setAttribute('aria-checked','true'); }
+    };
+    el._taskHandler = toggle;
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+    });
+  }
+
+  document.getElementById('seatsSubmit').addEventListener('click', () => {
+    if(taskAnswered) return;
+    taskAnswered = true;
+    const result = window.RailTasks.validateDealerTask(step, Array.from(chosen), activeTaskSnapshot);
+    (result.expected || []).forEach(s => { if(seatEls[s]) seatEls[s].classList.add('seat-correct'); });
+    (result.extraSeats || []).forEach(s => { if(seatEls[s]) seatEls[s].classList.add('seat-wrong'); });
+    finishTaskAnswer(result, optionList);
+  });
 }
 
 function submitSeatAnswer(step, seat, optionList){
@@ -3619,7 +3709,8 @@ function finishTaskAnswer(result, optionList){
 function clearTaskInteraction(){
   seatEls.forEach(el => {
     if(!el) return;
-    el.classList.remove('seat-selectable', 'seat-correct', 'seat-wrong');
+    el.classList.remove('seat-selectable', 'seat-correct', 'seat-wrong', 'seat-chosen');
+    el.removeAttribute('aria-checked');
     el.removeAttribute('role');
     el.removeAttribute('tabindex');
     el.removeAttribute('aria-label');
