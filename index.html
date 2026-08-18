@@ -1403,6 +1403,7 @@
 <script src="chip-render.js"></script>
 <script src="player-mode.js"></script>
 <script src="card-choice.js"></script>
+<script src="draw-engine.js"></script>
 <script src="boot-check.js"></script>
 
 <header>
@@ -4182,13 +4183,44 @@ let cardChoiceSession = null;
 // Returns true if a human card decision is required right now.
 function needsCardChoice(){
   if(!inPlayerMode() || playerSession.folded) return false;
-  if(!window.RailCardChoice || !currentScenario) return false;
-  return window.RailCardChoice.hasChoiceAt(currentScenario.dealCat, activeStepIndex);
+  if(!currentScenario) return false;
+  // A fixed discard rule (Pineapple, Super Stud) ...
+  if(window.RailCardChoice &&
+     window.RailCardChoice.hasChoiceAt(currentScenario.dealCat, activeStepIndex)) return true;
+  // ... or a real draw round.
+  return isDrawStep();
+}
+
+// True when the current scenario step is one of the game's real draws.
+// Derived from the step's own street label, so inserted training questions
+// never shift which steps are draws.
+function isDrawStep(){
+  if(!window.RailDraw || !currentScenario) return false;
+  if(!window.RailDraw.isDrawGame(currentScenario.dealCat)) return false;
+  const step = currentScenario.scenario[activeStepIndex];
+  if(!step || !/^Draw/i.test(step.street)) return false;
+  return drawStepIndex() > 0;
+}
+
+// Which draw this is (1-based), counting only real draw streets up to here.
+function drawStepIndex(){
+  if(!currentScenario) return 0;
+  const seen = [];
+  for(let i = 0; i <= activeStepIndex; i++){
+    const s = currentScenario.scenario[i];
+    if(s && /^Draw/i.test(s.street) && seen.indexOf(s.street) === -1) seen.push(s.street);
+  }
+  const cur = currentScenario.scenario[activeStepIndex];
+  return cur ? seen.indexOf(cur.street) + 1 : 0;
 }
 
 function showCardChoice(){
   const seat = playerSession.humanSeat;
-  const rule = window.RailCardChoice.ruleFor(currentScenario.dealCat, activeStepIndex);
+  // A draw round builds its rule from the draw engine; a fixed discard
+  // (Pineapple, Super Stud) uses its configured rule. Same selection UI.
+  const rule = isDrawStep()
+    ? drawRuleForChoice()
+    : window.RailCardChoice.ruleFor(currentScenario.dealCat, activeStepIndex);
   if(!rule) return;
 
   cancelPendingActions();   // nothing moves under the player
@@ -4198,6 +4230,23 @@ function showCardChoice(){
   });
   renderCardChoice();
   markSelectableCards();
+}
+
+// Builds a card-choice rule for a draw: any held card may be replaced,
+// and standing pat is legal, so 0..handSize is valid.
+function drawRuleForChoice(){
+  const seat = playerSession.humanSeat;
+  const held = (seatSlotMaps[seat] || []).length ||
+    (seatHoleCards[seat] || []).length;
+  const n = drawStepIndex();
+  return {
+    mode: 'draw',
+    discardCount: null,          // any count is legal, including zero
+    handSize: held,
+    mandatoryKeep: [],
+    label: 'Draw ' + n + ' — select cards to replace',
+    helpText: window.RailDraw.drawHelp(currentScenario.dealCat, n)
+  };
 }
 
 function markSelectableCards(){
@@ -4268,10 +4317,36 @@ function confirmCardChoice(){
   const result = window.RailCardChoice.confirmChoice(cardChoiceSession, dealGeneration);
   if(!result) return;   // stale or invalid — never mutates the hand
 
-  // Feed the human's choice into the SAME slot model the engine already uses.
   const seat = playerSession.humanSeat;
-  humanKeepSlots = result.keepSlots.slice();
-  humanIsPat = result.pat;
+
+  if(isDrawStep()){
+    // A DRAW: perform the real mutation. Selected cards leave the hand,
+    // enter the muck, and exactly that many replacements come off the live
+    // deck via the same drawCard() the dealing engine already uses.
+    const slotMap = seatSlotMaps[seat] || [];
+    const held = slotMap.length
+      ? slotMap.map(s => (seatHoleCards[seat] || [])[s]).filter(Boolean)
+      : (seatHoleCards[seat] || []).slice();
+    const r = window.RailDraw.applyDraw(held, cardChoiceSession.selected, drawCard, muckPile);
+
+    // Write the new hand back through the slot model so rendering, showdown
+    // and card identity all stay consistent.
+    const base = seatHoleCards[seat] || [];
+    const newMap = [];
+    r.hand.forEach(card => {
+      let idx = base.indexOf(card);
+      if(idx === -1){ base.push(card); idx = base.length - 1; }
+      newMap.push(idx);
+    });
+    seatHoleCards[seat] = base;
+    seatSlotMaps[seat] = newMap;
+    lastDrawResult = r;
+    showSeatAction(seat, window.RailDraw.drawLabel(r).toLowerCase(), 0, false);
+  } else {
+    // A fixed discard rule: hand the chosen keep-slots to the dealing engine.
+    humanKeepSlots = result.keepSlots.slice();
+    humanIsPat = result.pat;
+  }
 
   clearCardSelectionVisuals();
   cardChoiceSession = null;
@@ -4300,6 +4375,7 @@ function clearCardSelectionVisuals(){
 
 let humanKeepSlots = null;
 let humanIsPat = false;
+let lastDrawResult = null;
 
 function advanceAfterCardChoice(){
   stepIndex++;
