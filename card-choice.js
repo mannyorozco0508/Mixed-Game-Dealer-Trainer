@@ -20,7 +20,7 @@
    ============================================================ */
 (function(exports){
 
-const MODE = { DISCARD:'discard', PAT_OR_DISCARD:'pat-or-discard' };
+const MODE = { DISCARD:'discard', PAT_OR_DISCARD:'pat-or-discard', DRAW:'draw' };
 
 /* ---------- Per-game configuration ----------
    mandatoryKeep: slots the rule forces the player to retain (for Super
@@ -118,12 +118,21 @@ function declarePat(session, on){
 function isValid(session){
   if(!session || !session.rule || session.cancelled) return false;
   if(session.pat) return session.rule.mode === MODE.PAT_OR_DISCARD;
+  // A draw accepts ANY count including zero — standing pat is a legal draw.
+  if(session.rule.mode === MODE.DRAW || session.rule.discardCount === null){
+    return session.selected.length <= session.handSize;
+  }
   return session.selected.length === session.rule.discardCount;
 }
 
 function statusText(session){
   if(!session || !session.rule) return '';
   if(session.pat) return 'Standing pat — no cards discarded';
+  if(session.rule.mode === MODE.DRAW || session.rule.discardCount === null){
+    const n = session.selected.length;
+    return n === 0 ? 'Standing pat — tap cards to replace them'
+                   : 'Replacing ' + n + ' card' + (n === 1 ? '' : 's');
+  }
   return 'Selected: ' + session.selected.length + ' of ' + session.rule.discardCount;
 }
 
@@ -178,9 +187,10 @@ function decisionsCovered(dealCat){
   const covered = [];
   const missing = [];
   if(CHOICE_RULES[dealCat]) covered.push('discard');
-  // Draw games: flat hole counts mean no draw mechanics exist in the engine.
+  // Draw games are handled by draw-engine.js, which performs the real
+  // discard/replacement mutation, so the decision is genuinely covered.
   if(dealCat === 'draw4' || dealCat === 'draw5' || dealCat === 'drawmaha'){
-    missing.push('draw');
+    covered.push('draw');
   }
   return { covered, missing };
 }
