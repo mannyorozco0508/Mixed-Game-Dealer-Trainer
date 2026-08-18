@@ -1143,6 +1143,35 @@
     cursor:pointer;
   }
 
+  /* ---- Play & Learn UX ---- */
+  .draw-counter{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.16em;
+    color:var(--chip-blue); margin-bottom:6px; }
+  .player-action-btn.primary{ background:var(--brass-500); color:var(--felt-900);
+    border-color:var(--brass-500); font-weight:700; }
+  .player-action-btn.primary:disabled{ background:var(--felt-800); color:var(--slate-400); }
+  .player-status{ font-family:'IBM Plex Mono',monospace; font-size:14px; font-weight:700;
+    letter-spacing:0.14em; margin-bottom:10px; }
+  .player-status.folded{ color:var(--chip-red); }
+  .player-status.allin{ color:var(--brass-300); }
+  .watch-note{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.14em;
+    color:var(--slate-400); margin:12px 0; }
+  .help-toggle{ margin-top:12px; background:none; border:1px solid rgba(62,110,147,0.4);
+    color:var(--chip-blue); border-radius:2px; padding:8px 12px;
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.08em;
+    cursor:pointer; }
+  .help-toggle:hover{ border-color:var(--chip-blue); }
+  .board-label{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.14em;
+    color:var(--slate-400); text-align:center; }
+
+  /* The human's own cards are the ones they must read and tap, so they get
+     a size bump on the larger screens where the room exists. Table geometry
+     is unaffected because only this one seat changes. */
+  @media (min-width: 1000px) and (min-height: 501px){
+    .seat-pos.you-seat .mini-card{ width:30px; height:42px; font-size:13.5px; }
+    .seat-pos.you-seat .seat-cards{ max-width:150px; }
+    .board-label{ font-size:10px; }
+  }
+
   /* ---- Player card selection ---- */
   .mini-card.card-selectable{ cursor:pointer; outline:1px dashed rgba(201,162,39,0.55); outline-offset:1px; }
   .mini-card.card-selected{ outline:2px solid var(--chip-red); outline-offset:1px;
@@ -3145,6 +3174,10 @@ function buildTable(game, isRedeal){
   for(let i = 0; i < numPlayers; i++) seatSlotMaps.push([]);
   boardVisibleCount = 0;
   board2VisibleCount = 0;
+  const bl1 = document.getElementById('boardLabel1');
+  const bl2 = document.getElementById('boardLabel2');
+  if(bl1) bl1.textContent = '';
+  if(bl2) bl2.textContent = '';
 
   return numPlayers;
 }
@@ -3851,7 +3884,9 @@ function renderHandShell(){
           <div class="table-oval"></div>
           <div class="burn-pile" id="burnPile"></div>
           <div class="pot-display" id="potDisplay"></div>
+          <div class="board-label" id="boardLabel1"></div>
           <div class="board-row board1" id="boardRow1"></div>
+          <div class="board-label" id="boardLabel2"></div>
           <div class="board-row board2" id="boardRow2"></div>
           <div id="seatsEl"></div>
         </div>
@@ -4122,6 +4157,11 @@ function revealAllHands(){
   if(board2El && showdownBoard2.length){
     board2El.innerHTML = showdownBoard2.map(c => cardHtml(c, false)).join('');
     board2El.style.display = 'flex';
+    // Two boards must be unmistakably separate — label them.
+    const l1 = document.getElementById('boardLabel1');
+    const l2 = document.getElementById('boardLabel2');
+    if(l1) l1.textContent = 'TOP BOARD';
+    if(l2) l2.textContent = 'BOTTOM BOARD';
   }
 }
 
@@ -4287,20 +4327,34 @@ function renderCardChoice(){
     ? window.RailCardChoice.choiceCoach(cardChoiceSession, true) : '';
   const canPat = rule.mode === window.RailCardChoice.MODE.PAT_OR_DISCARD;
 
+  const isDraw = rule.mode === 'draw';
+  const n = cardChoiceSession.selected.length;
+  // Standing pat is an explicit choice, never "select nothing and guess".
+  const canStandPat = isDraw || canPat;
+  const drawNum = isDraw ? drawStepIndex() : 0;
+  const totalDraws = isDraw && window.RailDraw
+    ? window.RailDraw.drawRoundCount(currentScenario.dealCat) : 0;
+
   qa.innerHTML = `
     <div class="player-panel">
+      ${totalDraws ? '<div class="draw-counter">DRAW ' + drawNum + ' OF ' + totalDraws + '</div>' : ''}
       <div class="player-turn">${rule.label.toUpperCase()}</div>
       ${help ? '<div class="player-help">' + help + '</div>' : ''}
       <div class="choice-status">${window.RailCardChoice.statusText(cardChoiceSession)}</div>
       <div class="player-actions">
         ${canPat ? '<button class="player-action-btn" id="choicePat">' +
           (cardChoiceSession.pat ? 'CANCEL PAT' : rule.patLabel) + '</button>' : ''}
-        <button class="player-action-btn" id="choiceConfirm"${valid ? '' : ' disabled'}>
-          ${cardChoiceSession.pat ? 'CONFIRM PAT' : 'CONFIRM DISCARD'}
+        ${(isDraw && n === 0) ? '<button class="player-action-btn" id="choiceStandPat">STAND PAT</button>' : ''}
+        <button class="player-action-btn primary" id="choiceConfirm"${valid ? '' : ' disabled'}>
+          ${cardChoiceSession.pat ? 'CONFIRM PAT'
+            : (isDraw ? (n === 0 ? 'CONFIRM' : 'CONFIRM DRAW ' + n) : 'CONFIRM DISCARD')}
         </button>
       </div>
       ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
     </div>`;
+
+  const standPatBtn = document.getElementById('choiceStandPat');
+  if(standPatBtn) standPatBtn.addEventListener('click', confirmCardChoice);
 
   const patBtn = document.getElementById('choicePat');
   if(patBtn) patBtn.addEventListener('click', () => {
@@ -4405,8 +4459,19 @@ function showHumanControls(seat){
       <div class="player-turn">YOUR ACTION</div>
       ${help ? '<div class="player-help">' + help + '</div>' : ''}
       <div class="player-actions" id="playerActions"></div>
+      <button class="help-toggle" id="helpToggle" aria-expanded="${playerSession.playerHelp ? 'true' : 'false'}">
+        ${playerSession.playerHelp ? 'HIDE PLAYER HELP' : 'PLAYER HELP'}
+      </button>
       ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
     </div>`;
+
+  const toggle = document.getElementById('helpToggle');
+  if(toggle) toggle.addEventListener('click', () => {
+    playerSession.playerHelp = !playerSession.playerHelp;
+    window.RailPlayer.savePrefs(window.localStorage, {
+      playerHelp: playerSession.playerHelp, dealerCoach: playerSession.dealerCoach });
+    showHumanControls(seat);
+  });
 
   const wrap = document.getElementById('playerActions');
   opts.forEach(o => {
@@ -4416,6 +4481,31 @@ function showHumanControls(seat){
     btn.addEventListener('click', () => submitHumanAction(seat, o));
     wrap.appendChild(btn);
   });
+}
+
+// Removes any stale human controls so betting buttons never linger during
+// a draw, a coach explanation, showdown, or spectator mode.
+// Shows the human's status when they can no longer bet, so the app never
+// looks stuck. Coach keeps narrating either way.
+function showSpectatorPanel(kind){
+  const qa = document.getElementById('qaColumn');
+  if(!qa || !inPlayerMode()) return;
+  const coach = window.RailPlayer.dealerCoach(playerSession, coachState());
+  const isFold = kind === 'folded';
+  qa.innerHTML = `
+    <div class="player-panel">
+      <div class="player-status ${isFold ? 'folded' : 'allin'}">${isFold ? 'FOLDED' : 'ALL-IN'}</div>
+      <div class="player-help">${isFold
+        ? 'Your hand is dead for this pot. The hand plays on \u2014 watch how the dealer runs it out.'
+        : 'You have no chips left to bet, but your hand is still live for every pot you funded.'}</div>
+      <div class="watch-note">WATCH REST OF HAND</div>
+      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
+    </div>`;
+}
+
+function clearHumanControls(){
+  const qa = document.getElementById('qaColumn');
+  if(qa && qa.querySelector('.player-panel')) qa.innerHTML = '';
 }
 
 function submitHumanAction(seat, opt){
@@ -4435,8 +4525,12 @@ function submitHumanAction(seat, opt){
     playerSession.folded = true;
     playerSession.watching = true;   // the hand plays on; keep watching
   }
-  showSeatAction(seat, opt.action, amount, moneyState && moneyState.allIn[seat]);
+  const nowAllIn = moneyState && moneyState.allIn[seat];
+  clearHumanControls();
+  showSeatAction(seat, opt.action, amount, nowAllIn);
   refreshMoneyUI();
+  if(playerSession.folded) showSpectatorPanel('folded');
+  else if(nowAllIn) showSpectatorPanel('allin');
   runNextAction();
 }
 
