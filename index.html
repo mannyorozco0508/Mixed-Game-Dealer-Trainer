@@ -1143,6 +1143,45 @@
     cursor:pointer;
   }
 
+  /* ---- Staged showdown ---- */
+  .sd-you{ font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700;
+    letter-spacing:0.12em; color:var(--slate-400); margin-bottom:12px; }
+  .sd-you.won{ color:var(--brass-300); }
+  .sd-hands{ margin-bottom:12px; }
+  .sd-player{ padding:5px 0; border-bottom:1px solid rgba(237,230,214,0.07); }
+  .sd-who{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ivory-200); }
+  .sd-hand-line{ display:flex; justify-content:space-between; gap:10px;
+    font-size:12.5px; color:var(--slate-400); padding:1px 0; }
+  .sd-hand-line.win .sd-made{ color:var(--brass-300); font-weight:600; }
+  .sd-side{ font-family:'IBM Plex Mono',monospace; font-size:9px;
+    letter-spacing:0.1em; color:var(--chip-blue); }
+  .sd-sides{ margin:12px 0; }
+  .sd-side-row{ display:flex; justify-content:space-between; gap:10px;
+    padding:4px 0; border-left:2px solid rgba(201,162,39,0.4); padding-left:10px;
+    margin-bottom:4px; }
+  .sd-side-row.unqualified{ border-left-color:var(--chip-red); }
+  .sd-side-label{ font-family:'IBM Plex Mono',monospace; font-size:9.5px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-400); }
+  .sd-side-text{ font-family:'Fraunces',serif; font-size:13px; color:var(--brass-300); text-align:right; }
+  .sd-layers{ margin:12px 0; }
+  .sd-layer{ background:var(--felt-800); border:1px solid rgba(237,230,214,0.12);
+    border-radius:2px; padding:8px 10px; margin-bottom:6px; }
+  .sd-layer-head{ font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+    color:var(--brass-300); letter-spacing:0.06em; }
+  .sd-elig{ font-size:11px; color:var(--slate-400); margin-top:3px; }
+  .sd-board{ font-family:'IBM Plex Mono',monospace; font-size:11px;
+    color:var(--ivory-200); margin-top:3px; }
+  .sd-note{ font-size:10.5px; color:var(--slate-400); margin-top:3px; font-style:italic; }
+  .sd-payouts{ margin-top:10px; }
+  .sd-payout{ font-family:'IBM Plex Mono',monospace; font-size:12px;
+    color:var(--ivory-200); padding:2px 0; }
+  .sd-payout.you{ color:var(--brass-300); font-weight:600; }
+  .sd-skip{ margin-top:12px; background:none; border:1px solid rgba(237,230,214,0.25);
+    color:var(--slate-400); border-radius:2px; padding:9px 14px;
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.08em;
+    cursor:pointer; width:100%; }
+  .sd-skip:hover{ border-color:var(--brass-500); color:var(--brass-300); }
+
   /* ---- Play & Learn UX ---- */
   .draw-counter{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.16em;
     color:var(--chip-blue); margin-bottom:6px; }
@@ -1433,6 +1472,7 @@
 <script src="player-mode.js"></script>
 <script src="card-choice.js"></script>
 <script src="draw-engine.js"></script>
+<script src="showdown-present.js"></script>
 <script src="boot-check.js"></script>
 
 <header>
@@ -4118,15 +4158,145 @@ function renderShowdown(){
     refreshMoneyUI();
   }
 
-  // Subtle seat emphasis on the winner(s)
-  r.winners.forEach(seat => {
-    if(seatEls[seat]) seatEls[seat].classList.add('showdown-winner');
-  });
+  // Stage the result rather than dropping it all at once, so a trainee can
+  // follow WHY the pot divided the way it did. Every figure shown comes from
+  // the payout result the engine already produced.
+  runShowdownStages(r);
+}
 
-  document.getElementById('toSummaryBtn').addEventListener('click', () => {
+/* Runs the staged showdown. Each stage renders, waits a short mode-aware
+   beat, then advances. Nothing here computes a result — it reads what
+   showdown.js and money-state.js already decided. */
+let showdownPresentation = null;
+
+function runShowdownStages(result){
+  if(!window.RailShowPresent){ finishShowdown(result); return; }
+  const SPn = window.RailShowPresent;
+  showdownPresentation = SPn.createPresentation({
+    mode: currentMode, generation: dealGeneration
+  });
+  const generation = dealGeneration;
+  const layers = lastPayout ? SPn.layerBreakdown(lastPayout) : [];
+  const sides = SPn.sideSummaries(result);
+  const humanSeat = inPlayerMode() ? playerSession.humanSeat : undefined;
+
+  const step = () => {
+    if(generation !== dealGeneration) return;      // hand abandoned
+    renderShowdownStage(result, layers, sides, humanSeat);
+    if(SPn.isComplete(showdownPresentation)) return;
+    const delay = SPn.stageDelay(currentMode, showdownPresentation.stage);
+    pendingActionTimers.push(setTimeout(() => {
+      if(generation !== dealGeneration) return;
+      SPn.nextStage(showdownPresentation);
+      step();
+    }, delay));
+  };
+  step();
+}
+
+function renderShowdownStage(result, layers, sides, humanSeat){
+  const SPn = window.RailShowPresent;
+  const qa = document.getElementById('qaColumn');
+  if(!qa || !showdownPresentation) return;
+  const stage = showdownPresentation.stage;
+  const detail = SPn.detailLevel(currentMode);
+  const showCoach = SPn.showCoachAtShowdown(currentMode);
+
+  let body = '';
+
+  // Hands are read from the reveal stage onward.
+  if(stage !== SPn.STAGE.SHOWDOWN){
+    const lines = SPn.handLines(result, { humanSeat });
+    const bySeat = {};
+    lines.forEach(l => {
+      bySeat[l.seat] = bySeat[l.seat] || { seat:l.seat, isYou:l.isYou, parts:[] };
+      bySeat[l.seat].parts.push({ side:l.sideLabel, label:l.label, win:l.isWinner });
+    });
+    body += '<div class="sd-hands">' + Object.keys(bySeat).map(k => {
+      const h = bySeat[k];
+      const who = h.isYou ? 'YOU' : 'Player ' + (+k + 1);
+      const parts = h.parts.map(p =>
+        '<div class="sd-hand-line' + (p.win ? ' win' : '') + '">' +
+        (sides.length > 1 ? '<span class="sd-side">' + p.side + '</span>' : '') +
+        '<span class="sd-made">' + p.label + '</span></div>').join('');
+      return '<div class="sd-player"><span class="sd-who">' + who + '</span>' + parts + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // Side outcomes appear once hands have been read.
+  if(stage === SPn.STAGE.READ || stage === SPn.STAGE.LAYERS ||
+     stage === SPn.STAGE.PAYOUT || stage === SPn.STAGE.COMPLETE){
+    body += '<div class="sd-sides">' + sides.map(s =>
+      '<div class="sd-side-row' + (s.qualified ? '' : ' unqualified') + '">' +
+      '<span class="sd-side-label">' + s.label + '</span>' +
+      '<span class="sd-side-text">' + s.text + '</span></div>').join('') + '</div>';
+  }
+
+  // Pot layers, each with its own eligibility.
+  if((stage === SPn.STAGE.LAYERS || stage === SPn.STAGE.PAYOUT ||
+      stage === SPn.STAGE.COMPLETE) && layers.length){
+    body += '<div class="sd-layers">' + layers.map(l => {
+      let inner = '<div class="sd-layer-head">' + l.name + ' $' + l.amount + '</div>';
+      if(detail !== 'minimal'){
+        inner += '<div class="sd-elig">Eligible: ' + l.eligibleText + '</div>';
+      }
+      if(l.boards){
+        inner += l.boards.map(b =>
+          '<div class="sd-board">' + b.name + ' $' + b.share +
+          (b.winnerText ? ' \u2192 ' + b.winnerText : '') + '</div>').join('');
+        if(l.oddChipNote && detail !== 'minimal'){
+          inner += '<div class="sd-note">' + l.oddChipNote + '</div>';
+        }
+      }
+      return '<div class="sd-layer">' + inner + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // Actual chips paid.
+  if(stage === SPn.STAGE.PAYOUT || stage === SPn.STAGE.COMPLETE){
+    const pay = lastPayout ? SPn.payoutLines(lastPayout, { humanSeat }) : [];
+    if(pay.length){
+      body += '<div class="sd-payouts">' + pay.map(p =>
+        '<div class="sd-payout' + (p.isYou ? ' you' : '') + '">' + p.text + '</div>').join('') + '</div>';
+    }
+    result.winners.forEach(seat => {
+      if(seatEls[seat]) seatEls[seat].classList.add('showdown-winner');
+    });
+  }
+
+  const coach = showCoach ? SPn.coachForStage(stage, { sides, layers }) : '';
+  const human = (humanSeat !== undefined)
+    ? SPn.humanOutcome(result, humanSeat, playerSession.folded) : null;
+
+  qa.innerHTML = `
+    <div class="showdown-panel">
+      <div class="showdown-title">${SPn.outcomeHeadline(result) || 'SHOWDOWN'}</div>
+      ${human && human.text ? '<div class="sd-you ' + (human.won ? 'won' : '') + '">' + human.text + '</div>' : ''}
+      ${body}
+      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
+      ${SPn.isComplete(showdownPresentation)
+        ? '<button class="continue-hand-btn show" id="toSummaryBtn">Push Pot \u2014 Hand Complete</button>'
+        : '<button class="sd-skip" id="sdSkip">Show Result</button>'}
+    </div>`;
+
+  const skip = document.getElementById('sdSkip');
+  if(skip) skip.addEventListener('click', () => {
+    SPn.skipToEnd(showdownPresentation);
+    renderShowdownStage(result, layers, sides, humanSeat);
+  });
+  const done = document.getElementById('toSummaryBtn');
+  if(done) done.addEventListener('click', () => {
     showDealerCue('Push Pot');
     renderSummary(true);
   });
+}
+
+function finishShowdown(result){
+  const qa = document.getElementById('qaColumn');
+  if(!qa) return;
+  qa.innerHTML = '<div class="showdown-panel"><div class="showdown-title">Showdown</div>' +
+    '<button class="continue-hand-btn show" id="toSummaryBtn">Hand Complete</button></div>';
+  document.getElementById('toSummaryBtn').addEventListener('click', () => renderSummary(true));
 }
 
 // Turns every eligible player's cards face-up and syncs the board to what was
