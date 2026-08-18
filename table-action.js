@@ -183,7 +183,7 @@ function chooseAction(round, opts){
 
   // The engine is position-blind, so the adapter applies a light positional
   // and style nudge. This never overrides a fold/strong-hand decision — it
-  // only breaks up identical behaviour among equal-strength marginal hands.
+  // only breaks up identical behavior among equal-strength marginal hands.
   if(opts && opts.loosenessBias && action === ACTION.FOLD && round.betOutstanding){
     if(opts.loosenessBias > 0.75 && tier >= AI.TIER.MARGINAL) action = ACTION.CALL;
   }
