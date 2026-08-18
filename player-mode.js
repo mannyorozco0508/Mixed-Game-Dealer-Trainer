@@ -38,16 +38,10 @@ const PLAYER_SUPPORT = {
   pineapple:   { level:'FULL', family:'button-betting', humanChoice:'discard' },
   crazyPineapple:{ level:'FULL', family:'button-betting', humanChoice:'discard' },
 
-  // --- Still PARTIAL: the dealing engine has no draw mechanics ---
-  // Their hole counts are flat across every street, so no card is ever
-  // removed or replaced during a draw. A selection UI here would collect a
-  // choice the simulation cannot carry out, so these stay honestly partial.
-  drawmaha:    { level:'PARTIAL', family:'button-betting',
-                 missing:'Drawmaha includes a draw. Betting is fully playable, but the dealing engine does not yet exchange cards on a draw.' },
-  draw4:       { level:'PARTIAL', family:'draw-discard',
-                 missing:'The dealing engine does not yet exchange cards on a draw, so draw selection cannot be carried out.' },
-  draw5:       { level:'PARTIAL', family:'draw-discard',
-                 missing:'The dealing engine does not yet exchange cards on a draw, so draw selection cannot be carried out.' }
+  // --- Draws now physically simulated (draw-engine.js) ---
+  drawmaha:    { level:'FULL', family:'button-betting', humanChoice:'draw' },
+  draw4:       { level:'FULL', family:'draw-discard', humanChoice:'draw' },
+  draw5:       { level:'FULL', family:'draw-discard', humanChoice:'draw' }
 };
 
 function supportFor(dealCat){
