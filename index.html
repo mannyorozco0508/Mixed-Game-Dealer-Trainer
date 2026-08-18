@@ -3559,6 +3559,9 @@ function cancelPendingActions(){
 function tierFamilyForGame(game){
   if(!game) return 'high';
   const n = game.name;
+  // Split-pot games must be read for BOTH halves. Reading only the high side
+  // made a made low score WEAK, which folded most of the field on 3rd street.
+  if(/Hi-Lo|Hi\/Lo|8-or-Better/.test(n)) return 'stud-hilo';
   if(n.indexOf('Razz') === 0 || n.indexOf('A-5') === 0) return 'low-a5';
   if(n.indexOf('2-7') === 0) return 'low-27';
   if(n === 'Badugi') return 'badugi';
@@ -3646,12 +3649,24 @@ function runNextAction(){
 
     // Shape by stable per-seat personality and street, never illegally.
     if(window.RailRhythm){
+      const liveSeats = [];
+      for(let i = 0; i < tableSeats; i++){
+        if(i !== sitOutSeatIndex && !foldedSeats.has(i)) liveSeats.push(i);
+      }
+      const potNow = moneyState
+        ? moneyState.pot + moneyState.seats.reduce((n,s) => n + moneyState.streetContrib[s], 0) : 0;
       action = window.RailRhythm.shapeAction(action, {
         seat,
         legal: window.RailAction.legalActions(currentRound),
         tier,
         phase: window.RailRhythm.streetPhase(activeStepIndex, currentScenario.scenario.length),
-        personality: window.RailRhythm.personalityFor(seat)
+        personality: window.RailRhythm.personalityFor(seat),
+        // Price context: what a call costs relative to what is out there.
+        toCall: (moneyState && window.RailMoney) ? window.RailMoney.callAmount(moneyState, seat) : 0,
+        potSize: potNow,
+        invested: moneyState ? moneyState.handContrib[seat] : 0,
+        stack: moneyState ? moneyState.stacks[seat] : 0,
+        playersLeft: liveSeats.length
       });
     }
     currentRound = window.RailAction.applyAction(currentRound, seat, action);
