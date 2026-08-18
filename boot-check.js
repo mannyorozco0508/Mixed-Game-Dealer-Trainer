@@ -72,7 +72,11 @@ const REQUIRED_MODULES = [
 
   { filename:'card-choice.js',    global:'RailCardChoice', requires:[],
     provides:['ruleFor','beginCardChoice','toggleSlot','declarePat','isValid','confirmChoice'],
-    role:'Player card decisions — discards and Super Pat' }
+    role:'Player card decisions — discards and Super Pat' },
+
+  { filename:'draw-engine.js',    global:'RailDraw',      requires:[],
+    provides:['applyDraw','isLegalDraw','createDrawRound','currentDrawer','aiDiscardSlots','drawRoundCount'],
+    role:'Draw mechanics — discards, muck and replacements' }
 ];
 
 /* Verifies one module against its contract. scope is the object globals live
