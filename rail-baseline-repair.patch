@@ -1,0 +1,420 @@
+diff --git a/boot-check.js b/boot-check.js
+index 231bd2c..eb18fa0 100644
+--- a/boot-check.js
++++ b/boot-check.js
+@@ -35,7 +35,7 @@ const REQUIRED_MODULES = [
+     role:'Player decisions — hand strength and action choice' },
+ 
+   { filename:'showdown.js',       global:'RailShowdown',  requires:['RailCards'],
+-    provides:['evaluateShowdown','SHOWDOWN_RULES'],
++    provides:['evaluateShowdown','SHOWDOWN_RULES','ruleForGame','canonicalGameName'],
+     role:'Showdown — who wins each pot' },
+ 
+   { filename:'table-action.js',   global:'RailAction',    requires:['RailAI','RailCards'],
+diff --git a/index.html b/index.html
+index 153475c..d9528b1 100644
+--- a/index.html
++++ b/index.html
+@@ -1518,7 +1518,7 @@
+   </div>
+ </div>
+ 
+-<footer>THE RAIL — 21 GAMES · REAL 7-HANDED TABLES · HOLE CARDS HIDDEN LIKE THE REAL FLOOR</footer>
++<footer id="railFooter">THE RAIL — REAL 7-HANDED TABLES · HOLE CARDS HIDDEN LIKE THE REAL FLOOR</footer>
+ 
+ <div id="boot-overlay">
+   <div class="boot-card">
+@@ -2778,6 +2778,22 @@ DATA.forEach(cat => {
+   catsEl.appendChild(block);
+ });
+ 
++/* The footer count is DERIVED from DATA rather than typed in, so the roster
++   can never drift away from what the product actually spreads. General Floor
++   Rules is a reference card, not a poker game, so it is excluded — it has no
++   dealCat and no showdown rule. */
++function pokerGameCount(){
++  let n = 0;
++  DATA.forEach(cat => cat.games.forEach(g => { if(g.dealCat) n++; }));
++  return n;
++}
++(function renderFooterCount(){
++  const f = document.getElementById('railFooter');
++  if(!f) return;
++  f.textContent = 'THE RAIL — ' + pokerGameCount() +
++    ' GAMES · REAL 7-HANDED TABLES · HOLE CARDS HIDDEN LIKE THE REAL FLOOR';
++})();
++
+ /* ---------------- Local Progress Tracking ---------------- */
+ function getStats(){
+   try{ return JSON.parse(localStorage.getItem('railStats') || '{}'); }
+@@ -4045,7 +4061,9 @@ function renderStep(){
+    and renders. Cosmetic chip stacks are deliberately NOT consulted. */
+ function completeBoardsForShowdown(){
+   const pattern = currentScenario && DEAL_PATTERNS[currentScenario.dealCat];
+-  const rule = window.RailShowdown && window.RailShowdown.SHOWDOWN_RULES[currentScenario.name];
++  // Goes through ruleForGame so a legacy game name still resolves to the
++  // canonical rule rather than silently skipping board completion.
++  const rule = window.RailShowdown && window.RailShowdown.ruleForGame(currentScenario.name);
+   showdownBoard = tableBoardCards.slice();
+   showdownBoard2 = tableBoard2Cards.slice();
+   if(!rule) return;
+diff --git a/package.json b/package.json
+new file mode 100644
+index 0000000..ee0c125
+--- /dev/null
++++ b/package.json
+@@ -0,0 +1,12 @@
++{
++  "name": "the-rail",
++  "version": "0.1.0",
++  "private": true,
++  "description": "The Rail — poker dealer training and Play & Learn",
++  "scripts": {
++    "test": "node test-showdown.js && node test-card-model.js && node test-showdown-integration.js && node test-dealer-box-integration.js"
++  },
++  "devDependencies": {
++    "jsdom": "^24.0.0"
++  }
++}
+diff --git a/showdown.js b/showdown.js
+index 014fcfd..a40051a 100644
+--- a/showdown.js
++++ b/showdown.js
+@@ -220,9 +220,6 @@ const SHOWDOWN_RULES = {
+   // split with an A-to-5 eight-or-better qualifier. The old high-only mapping
+   // described the generic Super Stud family, not the game this room deals.
+   'Super Stud Hi-Lo 8 / Super Pat': { family:'high+low8', needsBoard:0 },
+-  // Legacy names kept so any saved progress or older reference still resolves.
+-  'Super Stud / Super Pat':   { family:'high+low8',     needsBoard:0 },
+-  'Super Hi-Lo Stud':         { family:'high+low8',     needsBoard:0 },
+   'Super Baducey':            { family:'badugi+27',     needsBoard:0 },
+   'Super Badacey':            { family:'badugi+a5',     needsBoard:0 },
+   // --- Omaha board + draw-hand split ---
+@@ -347,9 +344,35 @@ function buildSides(family, ctx){
+   }
+ }
+ 
++/* ---------- Legacy name compatibility ----------
++   SHOWDOWN_RULES is the canonical roster: one entry per game the app
++   currently spreads, and nothing else. Names we no longer deal are kept
++   HERE instead, as explicit aliases pointing at the canonical game, so a
++   stale reference or older saved record still resolves without inflating
++   the roster or reappearing as a game in its own right.
++
++   Super Stud consolidation: this room deals a hi-lo, 8-or-better game with
++   Super Pat. The two older names described that same game (and, in one
++   case, a high-only reading that was never what the room spreads), so both
++   now resolve to the single canonical entry. */
++const LEGACY_GAME_ALIASES = {
++  'Super Stud / Super Pat':   'Super Stud Hi-Lo 8 / Super Pat',
++  'Super Hi-Lo Stud':         'Super Stud Hi-Lo 8 / Super Pat'
++};
++
++/* Canonical name for any game name, current or legacy. */
++function canonicalGameName(name){
++  return LEGACY_GAME_ALIASES[name] || name;
++}
++
++/* Rule lookup that honours the alias layer. */
++function ruleForGame(name){
++  return SHOWDOWN_RULES[canonicalGameName(name)];
++}
++
+ /* ---------- Public entry point ---------- */
+ function evaluateShowdown({ game, players, board, board2 }){
+-  const rule = SHOWDOWN_RULES[game && game.name];
++  const rule = ruleForGame(game && game.name);
+   if(!rule){
+     return { ok:false, error:'No showdown rule configured for game: ' + (game && game.name) };
+   }
+@@ -398,6 +421,9 @@ function evaluateShowdown({ game, players, board, board2 }){
+ 
+ exports.evaluateShowdown = evaluateShowdown;
+ exports.SHOWDOWN_RULES = SHOWDOWN_RULES;
++exports.LEGACY_GAME_ALIASES = LEGACY_GAME_ALIASES;
++exports.canonicalGameName = canonicalGameName;
++exports.ruleForGame = ruleForGame;
+ exports.labelHigh = labelHigh;
+ exports.labelLowCards = labelLowCards;
+ exports.labelBadugi = labelBadugi;
+diff --git a/test-card-model.js b/test-card-model.js
+index b22324f..9427f83 100644
+--- a/test-card-model.js
++++ b/test-card-model.js
+@@ -1,7 +1,13 @@
+ const { JSDOM } = require('jsdom');
+ const fs = require('fs');
+ 
+-const src = fs.readFileSync('/tmp/unified_check.js', 'utf8');
++const path = require('path');
++// Reads the repository's real index.html, resolved relative to THIS file so
++// the suite runs from a fresh clone in any working directory. It previously
++// read a /tmp scratch copy a developer had to create by hand, which meant a
++// clean clone crashed with ENOENT — and, worse, that a stale scratch file
++// left on one machine could make the suite look greener than the repo was.
++const src = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+ function extract(a, b){
+   const s = src.indexOf(a);
+   const e = src.indexOf(b, s);
+@@ -156,8 +162,11 @@ const testBody = `
+   check('Omaha family (Double Board Omaha) renders correctly', renderFullHand('Double Board Omaha'));
+   check('Stud family (Razz) renders correctly', renderFullHand('Razz'));
+   check('Stud family (Stud Hi-Lo) renders correctly', renderFullHand('Stud Hi-Lo / 8-or-Better'));
+-  check('Super Stud discard case renders correctly', renderFullHand('Super Stud / Super Pat'));
+-  check('Super Hi-Lo Stud renders correctly', renderFullHand('Super Hi-Lo Stud'));
++  check('Super Stud discard case renders correctly', renderFullHand('Super Stud Hi-Lo 8 / Super Pat'));
++  // Was a second check on 'Super Hi-Lo Stud'. That name is now a legacy alias
++  // for the line above, so the check had become a duplicate of it. Retargeted
++  // to the Big O family, which this render block never covered.
++  check('Big O family (Big O Hi-Lo) renders correctly', renderFullHand('Big O Hi-Lo'));
+   check('Super Baducey renders correctly', renderFullHand('Super Baducey'));
+   check('Super Badacey renders correctly', renderFullHand('Super Badacey'));
+ 
+@@ -191,7 +200,7 @@ const testBody = `
+ 
+   // Card identity must survive a full stud hand unchanged
+   resetTableDom();
+-  const ss = findGame('Super Stud / Super Pat');
++  const ss = findGame('Super Stud Hi-Lo 8 / Super Pat');
+   currentScenario = ss;
+   tableSeats = 7;
+   buttonSeatIndex = null;
+@@ -201,13 +210,44 @@ const testBody = `
+   const pSS = DEAL_PATTERNS[ss.dealCat];
+   for(let step = 0; step < pSS.hole.length; step++) updateTableView(step);
+   const identityAfter = (seatHoleCards[seatIdx] || []).map(cardKey).join(',');
+-  check('Card identities are unchanged after a full stud hand renders (immutable identity)', identityBefore === identityAfter);
++  // The hand GROWS as streets are reached — buildTable deals only the first
++  // street and later streets draw from the live deck (see "DEFERRED DEALING"
++  // in index.html). Super Stud pitches 9 physical cards, 5 of them upfront.
++  // So the invariant is not "the array is unchanged" — that assumed the whole
++  // hand was dealt at cut time — but that every card ALREADY dealt keeps its
++  // identity and position. Comparing the prefix tests exactly that, and would
++  // still catch a reorder, substitution, or in-place mutation.
++  const beforeArr = identityBefore.split(',');
++  const afterArr  = identityAfter.split(',');
++  check('Already-dealt card identities and order survive a full stud hand (immutable identity)',
++        afterArr.slice(0, beforeArr.length).join(',') === identityBefore);
++  check('A stud hand only grows as streets are dealt, never shrinks or reorders',
++        afterArr.length >= beforeArr.length);
+ 
+   console.log('');
+   console.log('=== RESULTS: ' + pass + ' passed, ' + fail + ' failed ===');
+   if(fail > 0) process.exit(1);
+ `;
+ 
+-new Function('document', 'window', 'localStorage', 'console', 'process', 'RailCards', appCode + '\n' + testBody)(
+-  dom.window.document, dom.window, localStorageStub, console, process, RailCards
++// `clearActiveFault` belongs to the dealer-error PRESENTATION layer, which is
++// defined far below the last extraction marker and is not what this suite
++// exercises — these tests verify card/table behaviour. buildTable() calls it
++// to restore a coherent table, and with no fault ever injected here that call
++// is a no-op in production too, so stubbing it changes nothing under test.
++// Injected the same way the sandbox already supplies document/window/
++// localStorage rather than widening extraction to drag in the whole stateful
++// error/UI layer.
++const clearActiveFaultStub = function(){};
++
++// The deal pitches cards one at a time via setTimeout so a street animates
++// rather than appearing at once; only the first card lands synchronously.
++// These tests assert the SETTLED state of each street, so the sandbox gets a
++// setTimeout that runs its callback immediately. That collapses the animation
++// without altering what is dealt, in what order, or which cards face up —
++// placePitchedCard and applyFlipState still run exactly as in production.
++const immediateSetTimeout = function(fn){ fn(); return 0; };
++
++
++new Function('document', 'window', 'localStorage', 'console', 'process', 'RailCards', 'clearActiveFault', 'setTimeout', appCode + '\n' + testBody)(
++  dom.window.document, dom.window, localStorageStub, console, process, RailCards, clearActiveFaultStub, immediateSetTimeout
+ );
+diff --git a/test-dealer-box-integration.js b/test-dealer-box-integration.js
+index 0f84762..cbb0c19 100644
+--- a/test-dealer-box-integration.js
++++ b/test-dealer-box-integration.js
+@@ -1,7 +1,13 @@
+ const { JSDOM } = require('jsdom');
+ const fs = require('fs');
+ 
+-const src = fs.readFileSync('/tmp/dealerbox_check.js', 'utf8');
++const path = require('path');
++// Reads the repository's real index.html, resolved relative to THIS file so
++// the suite runs from a fresh clone in any working directory. It previously
++// read a /tmp scratch copy a developer had to create by hand, which meant a
++// clean clone crashed with ENOENT — and, worse, that a stale scratch file
++// left on one machine could make the suite look greener than the repo was.
++const src = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+ function extract(a, b){
+   const s = src.indexOf(a);
+   const e = src.indexOf(b, s);
+@@ -71,9 +77,9 @@ const testBody = `
+   }
+ 
+   // ===== TEST 1: Super Stud — the hardest case, includes a real DISCARD =====
+-  console.log('=== Super Stud / Super Pat: full hand incl. mid-hand discard ===');
++  console.log('=== Super Stud Hi-Lo 8 / Super Pat: full hand incl. mid-hand discard ===');
+   resetTableDom();
+-  const superStud = findGame('Super Stud / Super Pat');
++  const superStud = findGame('Super Stud Hi-Lo 8 / Super Pat');
+   currentScenario = superStud;
+   tableSeats = 7;
+   buttonSeatIndex = null;
+@@ -153,6 +159,25 @@ const testBody = `
+   if(fail > 0) process.exit(1);
+ `;
+ 
+-new Function('document', 'window', 'localStorage', 'console', 'process', appCode + '\n' + testBody)(
+-  dom.window.document, dom.window, localStorageStub, console, process
++// `clearActiveFault` belongs to the dealer-error PRESENTATION layer, which is
++// defined far below the last extraction marker and is not what this suite
++// exercises — these tests verify card/table behaviour. buildTable() calls it
++// to restore a coherent table, and with no fault ever injected here that call
++// is a no-op in production too, so stubbing it changes nothing under test.
++// Injected the same way the sandbox already supplies document/window/
++// localStorage rather than widening extraction to drag in the whole stateful
++// error/UI layer.
++const clearActiveFaultStub = function(){};
++
++// The deal pitches cards one at a time via setTimeout so a street animates
++// rather than appearing at once; only the first card lands synchronously.
++// These tests assert the SETTLED state of each street, so the sandbox gets a
++// setTimeout that runs its callback immediately. That collapses the animation
++// without altering what is dealt, in what order, or which cards face up —
++// placePitchedCard and applyFlipState still run exactly as in production.
++const immediateSetTimeout = function(fn){ fn(); return 0; };
++
++
++new Function('document', 'window', 'localStorage', 'console', 'process', 'clearActiveFault', 'setTimeout', appCode + '\n' + testBody)(
++  dom.window.document, dom.window, localStorageStub, console, process, clearActiveFaultStub, immediateSetTimeout
+ );
+diff --git a/test-showdown-integration.js b/test-showdown-integration.js
+index 25b13b4..1867495 100644
+--- a/test-showdown-integration.js
++++ b/test-showdown-integration.js
+@@ -1,7 +1,13 @@
+ const { JSDOM } = require('jsdom');
+ const fs = require('fs');
+ 
+-const src = fs.readFileSync('/tmp/showdown_check.js', 'utf8');
++const path = require('path');
++// Reads the repository's real index.html, resolved relative to THIS file so
++// the suite runs from a fresh clone in any working directory. It previously
++// read a /tmp scratch copy a developer had to create by hand, which meant a
++// clean clone crashed with ENOENT — and, worse, that a stale scratch file
++// left on one machine could make the suite look greener than the repo was.
++const src = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+ function extract(a, b){
+   const s = src.indexOf(a);
+   const e = src.indexOf(b, s);
+@@ -38,7 +44,7 @@ const testBody = `
+   function check(label, cond){ if(cond){ pass++; } else { fail++; console.log('FAIL: ' + label); } }
+   function cardKey(c){ return c.rank + c.suit; }
+ 
+-  console.log('=== Real app-dealt cards -> showdown, all 21 games ===');
++  console.log('=== Real app-dealt cards -> showdown, every canonical game ===');
+   let evaluated = 0, failures = [];
+   DATA.forEach(function(cat){ cat.games.forEach(function(game){
+     if(!game.dealCat || !game.scenario) return;
+@@ -80,7 +86,11 @@ const testBody = `
+     if(all.length > 52) failures.push(game.name + ': more than 52 cards in play');
+   }); });
+ 
+-  check('All 21 games produced a valid showdown from real dealt cards (' + evaluated + '/21)', evaluated === 21);
++  // Derived from the game data itself rather than a hardcoded count, so the
++  // roster can grow or shrink without this assertion going stale.
++  let expected = 0;
++  DATA.forEach(function(cat){ cat.games.forEach(function(g){ if(g.dealCat && g.scenario) expected++; }); });
++  check('Every canonical game produced a valid showdown from real dealt cards (' + evaluated + '/' + expected + ')', evaluated === expected && expected > 0);
+   check('No failures across any game (' + (failures.join(' | ') || 'none') + ')', failures.length === 0);
+ 
+   // Board completion specifically for the games whose quiz pattern stops short
+@@ -106,6 +116,25 @@ const testBody = `
+   if(fail > 0) process.exit(1);
+ `;
+ 
+-new Function('document','window','localStorage','console','process','RailCards','RailShowdown',
++// `clearActiveFault` belongs to the dealer-error PRESENTATION layer, which is
++// defined far below the last extraction marker and is not what this suite
++// exercises — these tests verify card/table behaviour. buildTable() calls it
++// to restore a coherent table, and with no fault ever injected here that call
++// is a no-op in production too, so stubbing it changes nothing under test.
++// Injected the same way the sandbox already supplies document/window/
++// localStorage rather than widening extraction to drag in the whole stateful
++// error/UI layer.
++const clearActiveFaultStub = function(){};
++
++// The deal pitches cards one at a time via setTimeout so a street animates
++// rather than appearing at once; only the first card lands synchronously.
++// These tests assert the SETTLED state of each street, so the sandbox gets a
++// setTimeout that runs its callback immediately. That collapses the animation
++// without altering what is dealt, in what order, or which cards face up —
++// placePitchedCard and applyFlipState still run exactly as in production.
++const immediateSetTimeout = function(fn){ fn(); return 0; };
++
++
++new Function('document','window','localStorage','console','process','RailCards','RailShowdown','clearActiveFault','setTimeout',
+   appCode + '\n' + testBody
+-)(dom.window.document, dom.window, localStorageStub, console, process, RailCards, RailShowdown);
++)(dom.window.document, dom.window, localStorageStub, console, process, RailCards, RailShowdown, clearActiveFaultStub, immediateSetTimeout);
+diff --git a/test-showdown.js b/test-showdown.js
+index 46b2fc2..2bffef2 100644
+--- a/test-showdown.js
++++ b/test-showdown.js
+@@ -146,7 +146,7 @@ console.log('=== Stud family ===');
+ {
+   // 11. stud high
+   const sh = S.evaluateShowdown({
+-    game: g('Super Stud / Super Pat'),
++    game: g('Super Stud Hi-Lo 8 / Super Pat'),
+     players: [
+       { seat:0, cards: cards('AS AH AD KS KH 2C 3D') },
+       { seat:1, cards: cards('9S 9H 9D 2S 3H 4C 5D') }
+@@ -170,7 +170,7 @@ console.log('=== Stud family ===');
+ 
+   // 14. Super Stud discard state — evaluator receives the final 7 cards
+   const ss = S.evaluateShowdown({
+-    game: g('Super Stud / Super Pat'),
++    game: g('Super Stud Hi-Lo 8 / Super Pat'),
+     players: [{ seat:0, cards: cards('AS KS QS JS TS 2H 3D') }],
+     board: []
+   });
+@@ -265,18 +265,35 @@ console.log('=== Double board ===');
+ 
+ /* ================= EVERY GAME HAS A RULE ================= */
+ console.log('');
+-console.log('=== Coverage: all 21 games ===');
++console.log('=== Coverage: every canonical game ===');
+ {
++  // The canonical poker roster, listed independently of SHOWDOWN_RULES on
++  // purpose: a coverage test that derived this from the registry it is
++  // checking would assert nothing. General Floor Rules is a reference card,
++  // not a poker game, so it has no showdown rule and is absent here.
++  // Legacy names are NOT listed — they live in LEGACY_GAME_ALIASES and are
++  // covered separately below.
+   const allGames = [
+     'Badugi','A-5 Lowball','2-7 Lowball','Badacey','Baducey','Archie',
+-    'Stud Hi-Lo / 8-or-Better','Razz','Super Stud / Super Pat','Super Hi-Lo Stud',
+-    'Super Baducey','Super Badacey','Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7',
++    'Stud Hi-Lo / 8-or-Better','Razz','Super Stud Hi-Lo 8 / Super Pat',
++    'Super Baducey','Super Badacey','Big O Hi-Lo','Big O PLO',
++    'Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7',
+     'Drawmaha 49','Drawmaha Badugi','Double Board Omaha','Pineapple',
+     'Crazy Pineapple',"Texas Hold'em"
+   ];
++  const GAME_COUNT = allGames.length;
+   const missing = allGames.filter(n => !S.SHOWDOWN_RULES[n]);
+-  check('All 21 games have a configured showdown rule (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
+-  check('Registry contains exactly 21 games', Object.keys(S.SHOWDOWN_RULES).length === 21);
++  check('All ' + GAME_COUNT + ' games have a configured showdown rule (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
++  const extra = Object.keys(S.SHOWDOWN_RULES).filter(n => allGames.indexOf(n) === -1);
++  check('Registry contains exactly the ' + GAME_COUNT + ' canonical games (unexpected: ' + (extra.join(', ') || 'none') + ')',
++        Object.keys(S.SHOWDOWN_RULES).length === GAME_COUNT && extra.length === 0);
++
++  // Legacy names must resolve through the alias layer without reappearing
++  // in the registry as games in their own right.
++  Object.keys(S.LEGACY_GAME_ALIASES).forEach(old => {
++    check('Legacy name "' + old + '" is not a registry game', !S.SHOWDOWN_RULES[old]);
++    check('Legacy name "' + old + '" still resolves to a rule', !!S.ruleForGame(old));
++  });
+ 
+   // every game actually evaluates without throwing
+   let evalFails = [];
