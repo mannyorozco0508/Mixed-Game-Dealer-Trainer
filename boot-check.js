@@ -76,7 +76,11 @@ const REQUIRED_MODULES = [
 
   { filename:'draw-engine.js',    global:'RailDraw',      requires:[],
     provides:['applyDraw','isLegalDraw','createDrawRound','currentDrawer','aiDiscardSlots','drawRoundCount'],
-    role:'Draw mechanics — discards, muck and replacements' }
+    role:'Draw mechanics — discards, muck and replacements' },
+
+  { filename:'showdown-present.js', global:'RailShowPresent', requires:[],
+    provides:['createPresentation','nextStage','layerBreakdown','sideSummaries','payoutLines','coachForStage'],
+    role:'Showdown pacing — reading hands and pot layers' }
 ];
 
 /* Verifies one module against its contract. scope is the object globals live
