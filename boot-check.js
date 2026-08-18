@@ -80,7 +80,15 @@ const REQUIRED_MODULES = [
 
   { filename:'showdown-present.js', global:'RailShowPresent', requires:[],
     provides:['createPresentation','nextStage','layerBreakdown','sideSummaries','payoutLines','coachForStage'],
-    role:'Showdown pacing — reading hands and pot layers' }
+    role:'Showdown pacing — reading hands and pot layers' },
+
+  { filename:'betting-rhythm.js', global:'RailRhythm',    requires:['RailAI'],
+    provides:['personalityFor','readIncompleteHigh','tierForStreet','shapeAction','streetPhase'],
+    role:'Betting rhythm — action across every street' },
+
+  { filename:'card-highlight.js', global:'RailHighlight', requires:[],
+    provides:['highlightFor','winnersHighlight','shouldHighlight','highlightCoach'],
+    role:'Winning card highlighting — which cards played' }
 ];
 
 /* Verifies one module against its contract. scope is the object globals live
