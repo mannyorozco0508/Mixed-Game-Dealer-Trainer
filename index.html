@@ -1143,6 +1143,16 @@
     cursor:pointer;
   }
 
+  /* ---- Winning card highlight ---- */
+  .mini-card.card-playing, .board-card.card-playing{
+    box-shadow:0 0 0 2px var(--brass-500), 0 2px 6px rgba(0,0,0,0.45);
+    z-index:2;
+  }
+  /* Cards that do NOT play recede rather than disappear, so the contrast
+     reads without hiding information. */
+  .showdown-dim .mini-card:not(.card-playing),
+  .showdown-dim .board-card:not(.card-playing){ opacity:0.45; }
+
   /* ---- Staged showdown ---- */
   .sd-you{ font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700;
     letter-spacing:0.12em; color:var(--slate-400); margin-bottom:12px; }
@@ -1283,7 +1293,7 @@
   .chip-wager .chip-amount{ color:var(--brass-300); }
   .chip-pot   .chip-amount{ font-size:11px; color:var(--brass-300); letter-spacing:0.04em; }
 
-  /* Wager chips: pushed inward toward the centre of the table. */
+  /* Wager chips: pushed inward toward the center of the table. */
   .wager-chips{
     display:flex; justify-content:center; margin-top:3px;
     transform:translateY(-2px) scale(0.92);
@@ -1473,6 +1483,8 @@
 <script src="card-choice.js"></script>
 <script src="draw-engine.js"></script>
 <script src="showdown-present.js"></script>
+<script src="betting-rhythm.js"></script>
+<script src="card-highlight.js"></script>
 <script src="boot-check.js"></script>
 
 <header>
@@ -3611,16 +3623,37 @@ function runNextAction(){
 
   const generation = actionGeneration;
   // Pace is set by the training mode so Learn is followable and Table Ready is brisk.
-  const delay = window.RailModes ? window.RailModes.actionDelay(currentMode) : 500;
+  let delay = window.RailModes ? window.RailModes.actionDelay(currentMode) : 500;
   pendingActionTimers.push(setTimeout(() => {
     if(generation !== actionGeneration) return; // stale — abandoned hand
     const family = tierFamilyForGame(currentScenario);
     const board = showdownBoard.length ? showdownBoard : tableBoardCards;
-    const tier = window.RailAction.tierForSeat(heldCards(seat), board, family);
-    const action = window.RailAction.chooseAction(currentRound, {
-      tier: tier,
-      loosenessBias: seatLoosenessFor(seat)
+    const held = heldCards(seat);
+
+    // Read the hand on EVERY street. The old path returned MARGINAL whenever
+    // fewer than five cards existed, which made the whole table check until
+    // the last street.
+    const tier = window.RailRhythm
+      ? window.RailRhythm.tierForStreet({
+          cards: held, board, family,
+          fullTier: () => window.RailAction.tierForSeat(held, board, family)
+        })
+      : window.RailAction.tierForSeat(held, board, family);
+
+    let action = window.RailAction.chooseAction(currentRound, {
+      tier: tier, loosenessBias: seatLoosenessFor(seat)
     });
+
+    // Shape by stable per-seat personality and street, never illegally.
+    if(window.RailRhythm){
+      action = window.RailRhythm.shapeAction(action, {
+        seat,
+        legal: window.RailAction.legalActions(currentRound),
+        tier,
+        phase: window.RailRhythm.streetPhase(activeStepIndex, currentScenario.scenario.length),
+        personality: window.RailRhythm.personalityFor(seat)
+      });
+    }
     currentRound = window.RailAction.applyAction(currentRound, seat, action);
     // Apply REAL money for this action before rendering it.
     let amount = 0, wasAllIn = false;
@@ -4223,6 +4256,12 @@ function renderShowdownStage(result, layers, sides, humanSeat){
     }).join('') + '</div>';
   }
 
+  // Light up exactly the cards that play, per side, from evaluator data.
+  if(window.RailHighlight && (stage === SPn.STAGE.READ || stage === SPn.STAGE.LAYERS ||
+     stage === SPn.STAGE.PAYOUT || stage === SPn.STAGE.COMPLETE)){
+    applyWinningHighlights(result);
+  }
+
   // Side outcomes appear once hands have been read.
   if(stage === SPn.STAGE.READ || stage === SPn.STAGE.LAYERS ||
      stage === SPn.STAGE.PAYOUT || stage === SPn.STAGE.COMPLETE){
@@ -4289,6 +4328,49 @@ function renderShowdownStage(result, layers, sides, humanSeat){
     showDealerCue('Push Pot');
     renderSummary(true);
   });
+}
+
+// Marks the cards that actually play. Presentation only — card identity,
+// face state and hand contents are untouched.
+function applyWinningHighlights(result){
+  clearWinningHighlights();
+  const H = window.RailHighlight;
+  if(!H || !result || !result.ok) return;
+  const isOmaha = /Big O|Drawmaha|Double Board/.test(currentScenario.name);
+
+  result.sides.forEach(side => {
+    if(!H.shouldHighlight(side)) return;   // never light an unqualified low
+    side.winners.forEach(seat => {
+      const slotMap = seatSlotMaps[seat] || [];
+      const hole = slotMap.length
+        ? slotMap.map(s => (seatHoleCards[seat] || [])[s]).filter(Boolean)
+        : (seatHoleCards[seat] || []);
+      const hl = H.highlightFor(side, seat, {
+        hole, board: showdownBoard.length ? showdownBoard : tableBoardCards,
+        board2: showdownBoard2
+      });
+      const el = seatEls[seat];
+      const container = el && el.querySelector('.seat-cards');
+      if(container){
+        hl.holeSlots.forEach(i => {
+          const cardEl = container.children[i];
+          if(cardEl) cardEl.classList.add('card-playing');
+        });
+      }
+      const b1 = document.getElementById('boardRow1');
+      if(b1) hl.boardSlots.forEach(i => {
+        if(b1.children[i]) b1.children[i].classList.add('card-playing');
+      });
+      const b2 = document.getElementById('boardRow2');
+      if(b2) hl.board2Slots.forEach(i => {
+        if(b2.children[i]) b2.children[i].classList.add('card-playing');
+      });
+    });
+  });
+}
+
+function clearWinningHighlights(){
+  document.querySelectorAll('.card-playing').forEach(el => el.classList.remove('card-playing'));
 }
 
 function finishShowdown(result){
