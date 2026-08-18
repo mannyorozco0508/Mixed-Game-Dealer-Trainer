@@ -19,7 +19,7 @@ const MODES = {
     id: 'learn',
     label: 'Learn',
     order: 1,
-    blurb: 'Teaches the game step by step. Mistakes explain rather than penalise.',
+    blurb: 'Teaches the game step by step. Mistakes explain rather than penalize.',
     // Presentation
     showHints: true,
     showInstruction: true,      // "NEXT: burn one card, then deal the flop"
