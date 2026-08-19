@@ -107,6 +107,9 @@ const testBody = `
     setButton(v){ buttonSeatIndex = v; },
     getSitOut(){ return sitOutSeatIndex; },
     patterns(){ return DEAL_PATTERNS; },
+    get currentBringInSeat(){ return currentBringInSeat; },
+    get moneyState(){ return moneyState; },
+    get sitOut(){ return sitOutSeatIndex; },
     stubDeck(fn){ freshDeck = fn; }
   };
 `;
@@ -256,6 +259,40 @@ const finished = slotAfter.every((n,i) => n === logAfter[i]);
 console.log('  pitch callbacks executed?         : ' + (finished ? 'YES' : 'NO — abandoned'));
 console.log('  logical hand intact?              : ' +
   (logAfter.every(n => n === pat.hole[0]) ? 'YES (showdown source unaffected)' : 'NO'));
+
+/* ============================================================
+   DIAGNOSTIC 3 — the GRADED bring-in task
+   ============================================================ */
+console.log('');
+console.log('================================================================');
+console.log('DIAGNOSTIC 3 — bring-in seat used by the graded task');
+console.log('================================================================');
+do { D.setScenario(stud); D.setSeats(7); D.setButton(null); D.buildTable(stud, false); }
+while(D.getSitOut() !== null);
+D.setStep(0); D.updateTableView(0);
+await sleep(D.pendingDealTimers.length * 160 + 1200);
+
+const upsFinal = D.upCardsBySeat();
+const doors = {};
+SEATS.forEach(s2 => { const u = upsFinal[s2]||[]; doors[s2] = u.length ? u[u.length-1] : null; });
+console.log('  door cards after the deal fully settles:');
+SEATS.forEach(s2 => console.log('    seat ' + s2 + ' door = ' + (doors[s2] ? D.fmt(doors[s2]) : '--')));
+
+const correctBringIn = RailAction.firstActor({
+  dealCat: stud.dealCat, tableSeats: 7, buttonSeat: null, sitOutSeat: D.getSitOut(),
+  foldedSeats: new Set(), street: 0, upCards: upsFinal,
+  highBringsIn: stud.name.indexOf('Stud Hi-Lo') !== 0
+});
+console.log('');
+console.log('  CORRECT bring-in from real doors (lowest card) : seat ' + correctBringIn);
+console.log('  currentBringInSeat (what the task grades on)   : seat ' + D.currentBringInSeat);
+console.log('  -> graded answer ' + (correctBringIn === D.currentBringInSeat ? 'MATCHES' : 'IS WRONG'));
+
+const ms = D.moneyState;
+if(ms && ms.streetContrib){
+  const posted = SEATS.filter(s2 => (ms.streetContrib[s2]||0) > 0);
+  console.log('  seats with a forced bet posted                 : ' + JSON.stringify(posted));
+}
 
 console.log('');
 console.log('--- mode reachability (firstActor is computed at 0ms, synchronously) ---');
