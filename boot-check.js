@@ -22,6 +22,26 @@
    requires lists the globals that must already exist for it to work;
    provides lists the functions the app actually calls. */
 const REQUIRED_MODULES = [
+  { filename:'hand-open.js',     global:'RailHandOpen',  requires:[],
+    provides:['openHand','openingStepFor','freshHandPiles'],
+    role:'Opening hand state — the authoritative first street and hand piles' },
+
+  { filename:'deal-state.js',    global:'RailDealState', requires:[],
+    provides:['applyStreet','targetsFor','planDiscard'],
+    role:'Pure street transition — decides what a street deals, discards and mucks' },
+
+  { filename:'card-model.js',    global:'RailCardModel', requires:[],
+    provides:['RANKS','SUITS','createCard','cardIsRed','cardFaceText','freshDeck','cardHtml'],
+    role:'Canonical card model — the only place a card is constructed' },
+
+  { filename:'deal-patterns.js', global:'RailDealPatterns', requires:[],
+    provides:['DEAL_PATTERNS'],
+    role:'Per-family dealing shapes — hole/board counts and faceSeq' },
+
+  { filename:'game-data.js',     global:'RailGameData',  requires:[],
+    provides:['DATA','tripleDrawSteps','sevenStudSteps','superStudSteps','drawmahaScenario'],
+    role:'Canonical game roster and scenario generators' },
+
   { filename:'cards-eval.js',     global:'RailCards',     requires:[],
     provides:['freshDeck','evaluate5High','bestOmahaHigh','bestBadugi','qualifiesEightLow'],
     role:'Hand evaluation — card rankings for every game' },
@@ -35,7 +55,7 @@ const REQUIRED_MODULES = [
     role:'Player decisions — hand strength and action choice' },
 
   { filename:'showdown.js',       global:'RailShowdown',  requires:['RailCards'],
-    provides:['evaluateShowdown','SHOWDOWN_RULES'],
+    provides:['evaluateShowdown','SHOWDOWN_RULES','ruleForGame','canonicalGameName'],
     role:'Showdown — who wins each pot' },
 
   { filename:'table-action.js',   global:'RailAction',    requires:['RailAI','RailCards'],

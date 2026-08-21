@@ -220,9 +220,6 @@ const SHOWDOWN_RULES = {
   // split with an A-to-5 eight-or-better qualifier. The old high-only mapping
   // described the generic Super Stud family, not the game this room deals.
   'Super Stud Hi-Lo 8 / Super Pat': { family:'high+low8', needsBoard:0 },
-  // Legacy names kept so any saved progress or older reference still resolves.
-  'Super Stud / Super Pat':   { family:'high+low8',     needsBoard:0 },
-  'Super Hi-Lo Stud':         { family:'high+low8',     needsBoard:0 },
   'Super Baducey':            { family:'badugi+27',     needsBoard:0 },
   'Super Badacey':            { family:'badugi+a5',     needsBoard:0 },
   // --- Omaha board + draw-hand split ---
@@ -347,9 +344,35 @@ function buildSides(family, ctx){
   }
 }
 
+/* ---------- Legacy name compatibility ----------
+   SHOWDOWN_RULES is the canonical roster: one entry per game the app
+   currently spreads, and nothing else. Names we no longer deal are kept
+   HERE instead, as explicit aliases pointing at the canonical game, so a
+   stale reference or older saved record still resolves without inflating
+   the roster or reappearing as a game in its own right.
+
+   Super Stud consolidation: this room deals a hi-lo, 8-or-better game with
+   Super Pat. The two older names described that same game (and, in one
+   case, a high-only reading that was never what the room spreads), so both
+   now resolve to the single canonical entry. */
+const LEGACY_GAME_ALIASES = {
+  'Super Stud / Super Pat':   'Super Stud Hi-Lo 8 / Super Pat',
+  'Super Hi-Lo Stud':         'Super Stud Hi-Lo 8 / Super Pat'
+};
+
+/* Canonical name for any game name, current or legacy. */
+function canonicalGameName(name){
+  return LEGACY_GAME_ALIASES[name] || name;
+}
+
+/* Rule lookup that honours the alias layer. */
+function ruleForGame(name){
+  return SHOWDOWN_RULES[canonicalGameName(name)];
+}
+
 /* ---------- Public entry point ---------- */
 function evaluateShowdown({ game, players, board, board2 }){
-  const rule = SHOWDOWN_RULES[game && game.name];
+  const rule = ruleForGame(game && game.name);
   if(!rule){
     return { ok:false, error:'No showdown rule configured for game: ' + (game && game.name) };
   }
@@ -398,6 +421,9 @@ function evaluateShowdown({ game, players, board, board2 }){
 
 exports.evaluateShowdown = evaluateShowdown;
 exports.SHOWDOWN_RULES = SHOWDOWN_RULES;
+exports.LEGACY_GAME_ALIASES = LEGACY_GAME_ALIASES;
+exports.canonicalGameName = canonicalGameName;
+exports.ruleForGame = ruleForGame;
 exports.labelHigh = labelHigh;
 exports.labelLowCards = labelLowCards;
 exports.labelBadugi = labelBadugi;

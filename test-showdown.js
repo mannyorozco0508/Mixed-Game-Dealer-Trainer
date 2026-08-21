@@ -146,7 +146,7 @@ console.log('=== Stud family ===');
 {
   // 11. stud high
   const sh = S.evaluateShowdown({
-    game: g('Super Stud / Super Pat'),
+    game: g('Super Stud Hi-Lo 8 / Super Pat'),
     players: [
       { seat:0, cards: cards('AS AH AD KS KH 2C 3D') },
       { seat:1, cards: cards('9S 9H 9D 2S 3H 4C 5D') }
@@ -170,7 +170,7 @@ console.log('=== Stud family ===');
 
   // 14. Super Stud discard state — evaluator receives the final 7 cards
   const ss = S.evaluateShowdown({
-    game: g('Super Stud / Super Pat'),
+    game: g('Super Stud Hi-Lo 8 / Super Pat'),
     players: [{ seat:0, cards: cards('AS KS QS JS TS 2H 3D') }],
     board: []
   });
@@ -265,18 +265,54 @@ console.log('=== Double board ===');
 
 /* ================= EVERY GAME HAS A RULE ================= */
 console.log('');
-console.log('=== Coverage: all 21 games ===');
+console.log('=== Coverage: every canonical game ===');
 {
+  // The roster now has ONE authoritative home. Assert the module agrees with
+  // the independent list below, so game-data.js and SHOWDOWN_RULES can never
+  // drift apart again the way DATA, the footer and these tests once did.
+  const GameData = require('./game-data.js');
+  let dataGames = 0, nonGames = 0;
+  GameData.DATA.forEach(cat => cat.games.forEach(g => { g.dealCat ? dataGames++ : nonGames++; }));
+  // The canonical poker roster, listed independently of SHOWDOWN_RULES on
+  // purpose: a coverage test that derived this from the registry it is
+  // checking would assert nothing. General Floor Rules is a reference card,
+  // not a poker game, so it has no showdown rule and is absent here.
+  // Legacy names are NOT listed — they live in LEGACY_GAME_ALIASES and are
+  // covered separately below.
   const allGames = [
     'Badugi','A-5 Lowball','2-7 Lowball','Badacey','Baducey','Archie',
-    'Stud Hi-Lo / 8-or-Better','Razz','Super Stud / Super Pat','Super Hi-Lo Stud',
-    'Super Baducey','Super Badacey','Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7',
+    'Stud Hi-Lo / 8-or-Better','Razz','Super Stud Hi-Lo 8 / Super Pat',
+    'Super Baducey','Super Badacey','Big O Hi-Lo','Big O PLO',
+    'Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7',
     'Drawmaha 49','Drawmaha Badugi','Double Board Omaha','Pineapple',
     'Crazy Pineapple',"Texas Hold'em"
   ];
+  const GAME_COUNT = allGames.length;
+  check('game-data.js holds exactly the canonical poker roster', dataGames === allGames.length,
+        'game-data=' + dataGames + ' expected=' + allGames.length);
+  check('General Floor Rules is carried separately, not as a poker game', nonGames === 1,
+        'non-game entries=' + nonGames);
+  const rosterNames = [];
+  GameData.DATA.forEach(cat => cat.games.forEach(g => { if(g.dealCat) rosterNames.push(g.name); }));
+  const drift = rosterNames.filter(n => allGames.indexOf(n) === -1)
+    .concat(allGames.filter(n => rosterNames.indexOf(n) === -1));
+  check('no drift between game-data.js and the expected roster (drift: ' + (drift.join(', ') || 'none') + ')',
+        drift.length === 0);
+  check('legacy Super Stud names are absent from the roster',
+        rosterNames.indexOf('Super Stud / Super Pat') === -1 &&
+        rosterNames.indexOf('Super Hi-Lo Stud') === -1);
   const missing = allGames.filter(n => !S.SHOWDOWN_RULES[n]);
-  check('All 21 games have a configured showdown rule (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
-  check('Registry contains exactly 21 games', Object.keys(S.SHOWDOWN_RULES).length === 21);
+  check('All ' + GAME_COUNT + ' games have a configured showdown rule (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
+  const extra = Object.keys(S.SHOWDOWN_RULES).filter(n => allGames.indexOf(n) === -1);
+  check('Registry contains exactly the ' + GAME_COUNT + ' canonical games (unexpected: ' + (extra.join(', ') || 'none') + ')',
+        Object.keys(S.SHOWDOWN_RULES).length === GAME_COUNT && extra.length === 0);
+
+  // Legacy names must resolve through the alias layer without reappearing
+  // in the registry as games in their own right.
+  Object.keys(S.LEGACY_GAME_ALIASES).forEach(old => {
+    check('Legacy name "' + old + '" is not a registry game', !S.SHOWDOWN_RULES[old]);
+    check('Legacy name "' + old + '" still resolves to a rule', !!S.ruleForGame(old));
+  });
 
   // every game actually evaluates without throwing
   let evalFails = [];

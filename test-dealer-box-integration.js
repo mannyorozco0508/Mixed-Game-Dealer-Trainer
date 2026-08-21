@@ -1,7 +1,13 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 
-const src = fs.readFileSync('/tmp/dealerbox_check.js', 'utf8');
+const path = require('path');
+// Reads the repository's real index.html, resolved relative to THIS file so
+// the suite runs from a fresh clone in any working directory. It previously
+// read a /tmp scratch copy a developer had to create by hand, which meant a
+// clean clone crashed with ENOENT — and, worse, that a stale scratch file
+// left on one machine could make the suite look greener than the repo was.
+const src = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 function extract(a, b){
   const s = src.indexOf(a);
   const e = src.indexOf(b, s);
@@ -13,12 +19,27 @@ function extract(a, b){
 // The rendering block is taken as ONE contiguous chunk (buildTable through
 // updateTableView) because the sound-effects code legitimately sits between
 // those functions in source order — excising it is what broke earlier attempts.
+// Three of the seven slices this harness used to take from index.html are
+// gone: the card model, DEAL_PATTERNS and the game roster are real modules
+// now, so they are required directly instead of being cut out by string
+// marker. The remaining slices cover stateful table orchestration
+// (buildTable/updateTableView and friends), which is not extractable yet.
+const RailCardModel    = require('./card-model.js');
+const RailDealPatterns = require('./deal-patterns.js');
+const RailGameData     = require('./game-data.js');
+const RailDealState    = require('./deal-state.js');
+const RailHandOpen     = require('./hand-open.js');
+// updateTableView delegates the street transition to this module.
+
+
 const appCode = [
-  extract('function tripleDrawSteps', 'const DATA = ['),
-  extract('const DATA = [', 'const potClass'),
-  extract('const RANKS = ', 'const DEAL_PATTERNS'),
-  extract('const DEAL_PATTERNS', 'let currentScenario = null;'),
-  extract('let currentScenario = null;', 'const BUTTON_DEALCATS'),
+  // Bindings the extracted modules used to provide inline.
+  'const { RANKS, SUITS, SUIT_SYMBOL, RED_SUITS, createCard, cardIsRed, cardFaceText, cardHtml } = RailCardModel;',
+  'let freshDeck = RailCardModel.freshDeck;',
+  'const DEAL_PATTERNS = RailDealPatterns.DEAL_PATTERNS;',
+  'const { DATA, tripleDrawSteps, drawmahaCommonSteps, drawmahaScenario, superStudSteps, sevenStudSteps } = RailGameData;',
+
+  extract('const overlay = document.getElementById', 'const BUTTON_DEALCATS'),
   extract('const BUTTON_DEALCATS', 'function buildTable(game, isRedeal){\n'),
   extract('function buildTable(game, isRedeal){', '\nfunction startScenario')
 ].join('\n');
@@ -34,6 +55,8 @@ const dom = new JSDOM(`<!DOCTYPE html><html><body>
   </div>
 </body></html>`);
 Object.defineProperty(dom.window.HTMLElement.prototype, 'clientWidth',  { configurable:true, get(){ return 760; } });
+dom.window.RailDealState = RailDealState;
+dom.window.RailHandOpen = RailHandOpen;
 Object.defineProperty(dom.window.HTMLElement.prototype, 'clientHeight', { configurable:true, get(){ return 360; } });
 const _store = {};
 const localStorageStub = {
@@ -71,9 +94,9 @@ const testBody = `
   }
 
   // ===== TEST 1: Super Stud — the hardest case, includes a real DISCARD =====
-  console.log('=== Super Stud / Super Pat: full hand incl. mid-hand discard ===');
+  console.log('=== Super Stud Hi-Lo 8 / Super Pat: full hand incl. mid-hand discard ===');
   resetTableDom();
-  const superStud = findGame('Super Stud / Super Pat');
+  const superStud = findGame('Super Stud Hi-Lo 8 / Super Pat');
   currentScenario = superStud;
   tableSeats = 7;
   buttonSeatIndex = null;
@@ -153,6 +176,25 @@ const testBody = `
   if(fail > 0) process.exit(1);
 `;
 
-new Function('document', 'window', 'localStorage', 'console', 'process', appCode + '\n' + testBody)(
-  dom.window.document, dom.window, localStorageStub, console, process
+// `clearActiveFault` belongs to the dealer-error PRESENTATION layer, which is
+// defined far below the last extraction marker and is not what this suite
+// exercises — these tests verify card/table behaviour. buildTable() calls it
+// to restore a coherent table, and with no fault ever injected here that call
+// is a no-op in production too, so stubbing it changes nothing under test.
+// Injected the same way the sandbox already supplies document/window/
+// localStorage rather than widening extraction to drag in the whole stateful
+// error/UI layer.
+const clearActiveFaultStub = function(){};
+
+// The deal pitches cards one at a time via setTimeout so a street animates
+// rather than appearing at once; only the first card lands synchronously.
+// These tests assert the SETTLED state of each street, so the sandbox gets a
+// setTimeout that runs its callback immediately. That collapses the animation
+// without altering what is dealt, in what order, or which cards face up —
+// placePitchedCard and applyFlipState still run exactly as in production.
+const immediateSetTimeout = function(fn){ fn(); return 0; };
+
+
+new Function('document', 'window', 'localStorage', 'console', 'process', 'clearActiveFault', 'RailCardModel', 'RailDealPatterns', 'RailGameData', 'setTimeout', appCode + '\n' + testBody)(
+  dom.window.document, dom.window, localStorageStub, console, process, clearActiveFaultStub, RailCardModel, RailDealPatterns, RailGameData, immediateSetTimeout
 );

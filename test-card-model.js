@@ -1,7 +1,13 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 
-const src = fs.readFileSync('/tmp/unified_check.js', 'utf8');
+const path = require('path');
+// Reads the repository's real index.html, resolved relative to THIS file so
+// the suite runs from a fresh clone in any working directory. It previously
+// read a /tmp scratch copy a developer had to create by hand, which meant a
+// clean clone crashed with ENOENT — and, worse, that a stale scratch file
+// left on one machine could make the suite look greener than the repo was.
+const src = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 function extract(a, b){
   const s = src.indexOf(a);
   const e = src.indexOf(b, s);
@@ -9,12 +15,27 @@ function extract(a, b){
   return src.slice(s, e);
 }
 
+// Three of the seven slices this harness used to take from index.html are
+// gone: the card model, DEAL_PATTERNS and the game roster are real modules
+// now, so they are required directly instead of being cut out by string
+// marker. The remaining slices cover stateful table orchestration
+// (buildTable/updateTableView and friends), which is not extractable yet.
+const RailCardModel    = require('./card-model.js');
+const RailDealPatterns = require('./deal-patterns.js');
+const RailGameData     = require('./game-data.js');
+const RailDealState    = require('./deal-state.js');
+const RailHandOpen     = require('./hand-open.js');
+// updateTableView delegates the street transition to this module.
+
+
 const appCode = [
-  extract('function tripleDrawSteps', 'const DATA = ['),
-  extract('const DATA = [', 'const potClass'),
-  extract('/* ============================================================\n   CANONICAL CARD MODEL', 'const DEAL_PATTERNS'),
-  extract('const DEAL_PATTERNS', 'let currentScenario = null;'),
-  extract('let currentScenario = null;', 'const BUTTON_DEALCATS'),
+  // Bindings the extracted modules used to provide inline.
+  'const { RANKS, SUITS, SUIT_SYMBOL, RED_SUITS, createCard, cardIsRed, cardFaceText, cardHtml } = RailCardModel;',
+  'let freshDeck = RailCardModel.freshDeck;',
+  'const DEAL_PATTERNS = RailDealPatterns.DEAL_PATTERNS;',
+  'const { DATA, tripleDrawSteps, drawmahaCommonSteps, drawmahaScenario, superStudSteps, sevenStudSteps } = RailGameData;',
+
+  extract('const overlay = document.getElementById', 'const BUTTON_DEALCATS'),
   extract('const BUTTON_DEALCATS', 'function buildTable(game, isRedeal){\n'),
   extract('function buildTable(game, isRedeal){', '\nfunction startScenario')
 ].join('\n');
@@ -34,6 +55,8 @@ const dom = new JSDOM(`<!DOCTYPE html><html><body>
   </div>
 </body></html>`);
 Object.defineProperty(dom.window.HTMLElement.prototype, 'clientWidth',  { configurable:true, get(){ return 760; } });
+dom.window.RailDealState = RailDealState;
+dom.window.RailHandOpen = RailHandOpen;
 Object.defineProperty(dom.window.HTMLElement.prototype, 'clientHeight', { configurable:true, get(){ return 360; } });
 const _store = {};
 const localStorageStub = {
@@ -156,8 +179,11 @@ const testBody = `
   check('Omaha family (Double Board Omaha) renders correctly', renderFullHand('Double Board Omaha'));
   check('Stud family (Razz) renders correctly', renderFullHand('Razz'));
   check('Stud family (Stud Hi-Lo) renders correctly', renderFullHand('Stud Hi-Lo / 8-or-Better'));
-  check('Super Stud discard case renders correctly', renderFullHand('Super Stud / Super Pat'));
-  check('Super Hi-Lo Stud renders correctly', renderFullHand('Super Hi-Lo Stud'));
+  check('Super Stud discard case renders correctly', renderFullHand('Super Stud Hi-Lo 8 / Super Pat'));
+  // Was a second check on 'Super Hi-Lo Stud'. That name is now a legacy alias
+  // for the line above, so the check had become a duplicate of it. Retargeted
+  // to the Big O family, which this render block never covered.
+  check('Big O family (Big O Hi-Lo) renders correctly', renderFullHand('Big O Hi-Lo'));
   check('Super Baducey renders correctly', renderFullHand('Super Baducey'));
   check('Super Badacey renders correctly', renderFullHand('Super Badacey'));
 
@@ -191,7 +217,7 @@ const testBody = `
 
   // Card identity must survive a full stud hand unchanged
   resetTableDom();
-  const ss = findGame('Super Stud / Super Pat');
+  const ss = findGame('Super Stud Hi-Lo 8 / Super Pat');
   currentScenario = ss;
   tableSeats = 7;
   buttonSeatIndex = null;
@@ -201,13 +227,44 @@ const testBody = `
   const pSS = DEAL_PATTERNS[ss.dealCat];
   for(let step = 0; step < pSS.hole.length; step++) updateTableView(step);
   const identityAfter = (seatHoleCards[seatIdx] || []).map(cardKey).join(',');
-  check('Card identities are unchanged after a full stud hand renders (immutable identity)', identityBefore === identityAfter);
+  // The hand GROWS as streets are reached — buildTable deals only the first
+  // street and later streets draw from the live deck (see "DEFERRED DEALING"
+  // in index.html). Super Stud pitches 9 physical cards, 5 of them upfront.
+  // So the invariant is not "the array is unchanged" — that assumed the whole
+  // hand was dealt at cut time — but that every card ALREADY dealt keeps its
+  // identity and position. Comparing the prefix tests exactly that, and would
+  // still catch a reorder, substitution, or in-place mutation.
+  const beforeArr = identityBefore.split(',');
+  const afterArr  = identityAfter.split(',');
+  check('Already-dealt card identities and order survive a full stud hand (immutable identity)',
+        afterArr.slice(0, beforeArr.length).join(',') === identityBefore);
+  check('A stud hand only grows as streets are dealt, never shrinks or reorders',
+        afterArr.length >= beforeArr.length);
 
   console.log('');
   console.log('=== RESULTS: ' + pass + ' passed, ' + fail + ' failed ===');
   if(fail > 0) process.exit(1);
 `;
 
-new Function('document', 'window', 'localStorage', 'console', 'process', 'RailCards', appCode + '\n' + testBody)(
-  dom.window.document, dom.window, localStorageStub, console, process, RailCards
+// `clearActiveFault` belongs to the dealer-error PRESENTATION layer, which is
+// defined far below the last extraction marker and is not what this suite
+// exercises — these tests verify card/table behaviour. buildTable() calls it
+// to restore a coherent table, and with no fault ever injected here that call
+// is a no-op in production too, so stubbing it changes nothing under test.
+// Injected the same way the sandbox already supplies document/window/
+// localStorage rather than widening extraction to drag in the whole stateful
+// error/UI layer.
+const clearActiveFaultStub = function(){};
+
+// The deal pitches cards one at a time via setTimeout so a street animates
+// rather than appearing at once; only the first card lands synchronously.
+// These tests assert the SETTLED state of each street, so the sandbox gets a
+// setTimeout that runs its callback immediately. That collapses the animation
+// without altering what is dealt, in what order, or which cards face up —
+// placePitchedCard and applyFlipState still run exactly as in production.
+const immediateSetTimeout = function(fn){ fn(); return 0; };
+
+
+new Function('document', 'window', 'localStorage', 'console', 'process', 'RailCards', 'clearActiveFault', 'RailCardModel', 'RailDealPatterns', 'RailGameData', 'setTimeout', appCode + '\n' + testBody)(
+  dom.window.document, dom.window, localStorageStub, console, process, RailCards, clearActiveFaultStub, RailCardModel, RailDealPatterns, RailGameData, immediateSetTimeout
 );
