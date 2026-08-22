@@ -873,7 +873,7 @@
             {text:"All 5 hole cards must be used for the Badugi hand", correct:false, feedback:"Badugi is always best-4-of-however-many-available — you use the best 4 out of the 5 hole cards, not all 5."}
           ]
         })},
-        { name:"Double Board Omaha", dealCat:"doubleBoard", maxPlayers:7, pot:"split", meta:"4-5 hole cards · two boards · max 7", flow:[
+        { name:"Big-O Double Board", dealCat:"doubleBoard", maxPlayers:7, pot:"split", meta:"5 hole cards · two boards · one burn per street · max 7", flow:[
           "Deal hole cards — betting round",
           "Burn, deal flop on both boards — betting round",
           "Burn, deal turn on both boards — betting round",
