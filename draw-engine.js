@@ -20,7 +20,7 @@
 
    Works in Node (require) and the browser (window.RailDraw).
    ============================================================ */
-(function(exports){
+(function(exports, E){
 
 /* ---------- Draw configuration per deal category ----------
    drawRounds is the number of REAL draw opportunities. maxDiscard is
@@ -256,11 +256,67 @@ exports.applyDraw = applyDraw;
 exports.completeSeatDraw = completeSeatDraw;
 /* ---------- Super Pat ----------
    A Super Stud seat may keep all five original cards instead of trimming to
-   three. Nothing in production ever made this decision for an AI seat, so
-   every seat discarded every hand and 440 simulated hands produced ZERO pat
-   locks. The judgement is delegated: the caller supplies the same split-pot
-   tier function the betting model already uses, so "is this worth locking"
-   and "is this worth betting" can never disagree. */
+   three. The question is not "is this hand strong on some general scale" but
+   "do I ALREADY hold a made hand worth locking, by THIS game's scoring".
+
+   The old decision asked window.RailAction.tierForSeat with the game's
+   BETTING family, which is not the same thing. Super Baducey and Super
+   Badacey have no name match, so they fell through to the plain 'high'
+   family, and a 40,000-hand sample showed them locking a diamond flush
+   (KD JD 4D QD 7D) and trip sevens (7C 7S QC 8H 7D) — in badugi split games
+   those are the WORST possible holdings: a one-card badugi, and a flush or
+   trips against a 2-7 or A-5 low. They were patting exactly the hands they
+   should be throwing away.
+
+   Objectives come from the same showdown registry the draw strategy uses, so
+   what a seat locks for is by construction what the pot pays. */
+function madeEightLow(cards){
+  const low = E.bestLowA5FromN(cards);
+  return !!(low && low.score && E.qualifiesEightLow(low.score));
+}
+function madeHigh(cards, ai){
+  // Trips or better: a hand already worth playing without improvement.
+  const s = E.bestHighFromN(cards).score;
+  return s[0] >= 3;
+}
+function made27Low(cards){
+  // Five distinct ranks, no straight, no flush, nine-high or better.
+  if(cards.length < 5) return false;
+  const vals = cards.map(c => E.rankValue(c.rank)).sort((a,b) => a - b);
+  if(new Set(vals).size !== 5) return false;
+  if(vals[4] > 9) return false;
+  if(cards.every(c => c.suit === cards[0].suit)) return false;
+  if(vals.every((v,i) => i === 0 || v === vals[i-1] + 1)) return false;
+  return true;
+}
+function madeBadugi(cards, ceiling){
+  const b = E.bestBadugi(cards);
+  return !!(b && b.size === 4 && b.tiebreak && b.tiebreak[0] <= (ceiling || 10));
+}
+
+/* Returns true when the five cards are worth locking. */
+function superPatDecision(gameName, hand, showdown, ai){
+  const held = hand || [];
+  if(held.length < 5) return false;
+  try {
+    const objective = objectiveFor(gameName, showdown);
+    switch(objective){
+      // Stud Hi-Lo 8: lock a made eight-or-better low, or a made high.
+      // The low is the whole point of the game — a 7-low at five cards is a
+      // hand you keep, and it scores as high-card on any general tier.
+      case 'high+a5':   return madeEightLow(held) || madeHigh(held, ai);
+      // Badugi + 2-7: a complete badugi, or a made deuce-to-seven low.
+      case 'badugi+27': return madeBadugi(held, 8) || made27Low(held);
+      // Badugi + A-5: a complete badugi, or a made eight-or-better low.
+      case 'badugi+a5': return madeBadugi(held, 8) || madeEightLow(held);
+      default: return false;   // a game with no Pat objective never locks
+    }
+  } catch(err){ return false; }
+}
+
+/* Back-compatible signature. Callers that supply a game name and the showdown
+   registry get the objective-aware decision; the old tier-function form is
+   still honoured so nothing that already calls it changes meaning. */
 function aiPatDecision(hand, tierFn, minTier){
   const held = hand || [];
   if(typeof tierFn !== 'function' || held.length < 5) return false;
@@ -270,6 +326,10 @@ function aiPatDecision(hand, tierFn, minTier){
 }
 
 exports.aiDiscardSlots = aiDiscardSlots;
+exports.superPatDecision = superPatDecision;
+exports.madeEightLow = madeEightLow;
+exports.made27Low = made27Low;
+exports.madeBadugi = madeBadugi;
 exports.objectiveFor = objectiveFor;
 exports.aiPatDecision = aiPatDecision;
 exports.DRAW_OBJECTIVE = DRAW_OBJECTIVE;
@@ -279,4 +339,7 @@ exports.drawHelp = drawHelp;
 exports.collectAllCards = collectAllCards;
 exports.hasDuplicates = hasDuplicates;
 
-})(typeof module !== 'undefined' ? module.exports : (window.RailDraw = window.RailDraw || {}));
+})(
+  typeof module !== 'undefined' ? module.exports : (window.RailDraw = window.RailDraw || {}),
+  typeof module !== 'undefined' ? require('./cards-eval.js') : window.RailCards
+);
