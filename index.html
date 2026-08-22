@@ -2456,8 +2456,32 @@ function runAiDraws(){
   }
 }
 
+/* Seats still contesting the pot: not sitting out, not folded. All-in seats
+   count — they still win at showdown. */
+function contendingSeats(){
+  const out = [];
+  for(let i = 0; i < tableSeats; i++){
+    if(i !== sitOutSeatIndex && !foldedSeats.has(i)) out.push(i);
+  }
+  return out;
+}
+
 function startActionRound(){
   if(!window.RailAction || !currentScenario) return;
+  /* An uncontested pot ends the betting for the whole hand, not just this
+     street. handEndedByFolds was written in three places and read in none, so
+     every later street opened a fresh round for the sole survivor and offered
+     them CHECK/BET into an empty field. Nothing may act from here: no human
+     panel, no AI timer, no new round. renderShowdown() awards the pot once
+     when the scenario reaches its end. */
+  if(handEndedByFolds || contendingSeats().length <= 1){
+    handEndedByFolds = true;
+    currentRound = null;
+    cancelPendingActions();   // no queued AI decision may fire afterwards
+    clearHumanControls();
+    finishActionRound();
+    return;
+  }
   // Everyone who owed a draw has drawn before anyone bets.
   runAiDraws();
   const game = currentScenario;
@@ -2558,6 +2582,14 @@ function decideActionForSeat(seat){
 }
 
 function runNextAction(){
+  // Re-checked every turn: the fold that empties the field can happen mid-round.
+  if(contendingSeats().length <= 1){
+    handEndedByFolds = true;
+    cancelPendingActions();
+    clearHumanControls();
+    finishActionRound();
+    return;
+  }
   if(!currentRound || currentRound.complete){ finishActionRound(); return; }
   const seat = currentRound.current;
   if(seat === null || seat === undefined){ finishActionRound(); return; }
