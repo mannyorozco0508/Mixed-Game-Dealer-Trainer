@@ -1954,6 +1954,11 @@ function buildTable(game, isRedeal){
   // Choices the human made last hand must not survive into this one.
   humanKeepSlots = null;
   humanIsPat = false;
+  // The one-draw-per-step guard is per HAND. Left across hands it held the
+  // last step index from the previous deal, so any game whose draw sits at a
+  // fixed step ran its AI draws on the first hand only — Drawmaha Hi, whose
+  // single draw is always step 3, stood pat 99% of the time as a result.
+  aiDrawsDoneForStep = -1;
   foldedSeats = new Set();
   currentRound = null;
   handEndedByFolds = false;
@@ -2175,8 +2180,24 @@ function updateTableView(stepIndex){
     keepSlotsFor: seat =>
       (inPlayerMode() && humanKeepSlots && seat === playerSession.humanSeat)
         ? humanKeepSlots : null,
-    // A locked seat is done receiving cards for the rest of the hand.
-    isPatSeat: seat => !!seatPatLocked[seat]
+    // A locked seat is done receiving cards for the rest of the hand. The
+    // human locks via confirmCardChoice; AI seats decide for themselves, or
+    // Super Pat could never happen to anyone but the player.
+    isPatSeat: seat => {
+      if(seatPatLocked[seat]) return true;
+      if(inPlayerMode() && playerSession && seat === playerSession.humanSeat) return false;
+      if(!window.RailDraw || !window.RailDraw.aiPatDecision) return false;
+      if(!window.RailCardChoice ||
+         !window.RailCardChoice.hasChoiceAt(currentScenario && currentScenario.dealCat, stepIndex)) return false;
+      const rule = window.RailCardChoice.ruleFor(currentScenario.dealCat, stepIndex);
+      if(!rule || !rule.patLabel) return false;   // only games that offer Pat
+      const map = dealState.seatSlotMaps[seat] || [];
+      const held = map.map(s => (dealState.seatHoleCards[seat] || [])[s]).filter(Boolean);
+      const pat = window.RailDraw.aiPatDecision(held, h =>
+        window.RailAction.tierForSeat(h, [], tierFamilyForGame(currentScenario)));
+      if(pat) seatPatLocked[seat] = true;
+      return pat;
+    }
   });
 
   // ---- 2. Authoritative state is now complete. Read it back. ----
@@ -2362,8 +2383,76 @@ function refreshRaiseCap(){
   currentRound.raiseCapped = live > 2 && window.RailMoney.raiseCapReached(moneyState);
 }
 
+/* ---------- AI draws ----------
+   Draw patterns are FLAT (5 -> 5 -> 5), so applyStreet's discard block never
+   fires on a draw step and no AI seat ever exchanged a card: the only
+   production caller of applyDraw was the human's confirmCardChoice. Every
+   opponent in every draw game held its original five cards to showdown.
+
+   This runs BEFORE the betting round for the step, so the tier the betting
+   model reads is the POST-draw hand — a seat cannot draw four and then bet
+   its old holding. Mutation goes through applyDraw, the same authoritative
+   path the human uses: real identities leave the hand, land in
+   roundDiscards, and replacements come off the live deck via drawCard. No
+   parallel mutation path, and burn/reshuffle rules stay untouched. */
+let aiDrawsDoneForStep = -1;
+/* Deliberately self-contained: derived from the step's own street label and
+   the deal category, using nothing outside this scope. */
+function isAiDrawStep(){
+  if(!window.RailDraw || !currentScenario) return false;
+  if(!window.RailDraw.isDrawGame(currentScenario.dealCat)) return false;
+  const step = currentScenario.scenario[activeStepIndex];
+  return !!(step && /^Draw/i.test(step.street));
+}
+function runAiDraws(){
+  if(!window.RailDraw || !window.RailAI || !currentScenario) return;
+  if(!isAiDrawStep()) return;
+  if(aiDrawsDoneForStep === activeStepIndex) return;   // one draw per step
+  aiDrawsDoneForStep = activeStepIndex;
+
+  for(let seat = 0; seat < tableSeats; seat++){
+    if(seat === sitOutSeatIndex) continue;
+    if(foldedSeats.has(seat)) continue;
+    // The human's draw is the human's decision, always. AI_FOR_HUMAN stays 0.
+    if(inPlayerMode() && playerSession && seat === playerSession.humanSeat) continue;
+
+    const slotMap = seatSlotMaps[seat] || [];
+    const held = slotMap.length
+      ? slotMap.map(s => (seatHoleCards[seat] || [])[s]).filter(Boolean)
+      : (seatHoleCards[seat] || []).slice();
+    if(!held.length) continue;
+
+    let slots = [];
+    try {
+      slots = window.RailDraw.aiDiscardSlots(
+        currentScenario.dealCat, currentScenario.name, held,
+        window.RailAI, window.RailShowdown) || [];
+    } catch(err){ slots = []; }
+    if(!slots.length){
+      showSeatAction(seat, 'stands pat', 0, false);
+      continue;
+    }
+
+    const r = window.RailDraw.applyDraw(held, slots, drawCard, roundDiscards);
+    // Write back through the slot model so rendering, showdown and card
+    // identity stay consistent — identical to the human path.
+    const base = seatHoleCards[seat] || [];
+    const newMap = [];
+    r.hand.forEach(card => {
+      let idx = base.indexOf(card);
+      if(idx === -1){ base.push(card); idx = base.length - 1; }
+      newMap.push(idx);
+    });
+    seatHoleCards[seat] = base;
+    seatSlotMaps[seat] = newMap;
+    showSeatAction(seat, window.RailDraw.drawLabel(r).toLowerCase(), 0, false);
+  }
+}
+
 function startActionRound(){
   if(!window.RailAction || !currentScenario) return;
+  // Everyone who owed a draw has drawn before anyone bets.
+  runAiDraws();
   const game = currentScenario;
   const highBringsIn = game.name.indexOf('Stud Hi-Lo') !== 0; // Hi-Lo: low brings in
   // A seat that ran out of chips on an earlier street is still in the hand,
