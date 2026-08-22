@@ -57,7 +57,7 @@ console.log('=== Opening card counts, every family ===');
   ['Super Stud Hi-Lo 8 / Super Pat', 5],
   ['Badugi', 4], ['A-5 Lowball', 5], ['2-7 Lowball', 5],
   ['Badacey', 5], ['Baducey', 5], ['Archie', 5],
-  ['Drawmaha Hi', 5], ['Double Board Omaha', 5],
+  ['Drawmaha Hi', 5], ['Big-O Double Board', 5],
   ['Pineapple', 3], ['Crazy Pineapple', 3]
 ].forEach(([name, expected]) => {
   const o = open(name, 7);
@@ -96,7 +96,7 @@ console.log('=== Every family deals in passes, not blocks ===');
     ['Super Stud Hi-Lo 8 / Super Pat', 5],
     ['Badugi', 4], ['A-5 Lowball', 5], ['2-7 Lowball', 5],
     ['Badacey', 5], ['Baducey', 5], ['Archie', 5],
-    ['Drawmaha Hi', 5], ['Double Board Omaha', 5],
+    ['Drawmaha Hi', 5], ['Big-O Double Board', 5],
     ['Pineapple', 3], ['Crazy Pineapple', 3]
   ].forEach(([name, passes]) => {
     const SEATS = 7;
