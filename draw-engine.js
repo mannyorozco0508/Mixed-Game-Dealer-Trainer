@@ -125,21 +125,65 @@ function completeSeatDraw(round, seat, result){
 }
 
 /* ---------- AI draw choice ----------
-   Reuses the guidance already in ai-players.js where it exists. Where it
-   does not, the fallback is deliberately simple and NOT presented as
-   strategy: it stands pat rather than inventing a discard policy. */
-function aiDiscardSlots(dealCat, gameName, hand, ai){
+   Routing used to be a chain of regexes over the GAME NAME, which silently
+   dropped every game whose name didn't match: Archie, Drawmaha Hi, Drawmaha
+   49 and Drawmaha Badugi all fell through to "no guidance -> stand pat", and
+   Badacey/Baducey matched only their lowball half so the badugi side was
+   never considered at all.
+
+   Objectives now come from the same registry the SHOWDOWN uses, so what a
+   seat draws toward is by construction what the pot actually pays. An
+   unmapped family still stands pat rather than inventing a policy. */
+const DRAW_OBJECTIVE = {
+  'badugi-only':    'badugi',
+  'a5-only':        'a5',
+  '27-only':        'low27',
+  'badugi+a5':      'badugi+a5',
+  'badugi+27':      'badugi+27',
+  'archie':         'high+a5',
+  'omaha+drawhigh': 'high',
+  'omaha+a5hole':   'a5',
+  'omaha+27hole':   'low27',
+  'omaha+points':   'points49',
+  'omaha+badugi':   'badugi',
+  'high+low8':      'high+a5'
+};
+
+function objectiveFor(gameName, showdown){
+  const rules = showdown && showdown.SHOWDOWN_RULES;
+  const entry = rules ? rules[gameName] : null;
+  return entry ? (DRAW_OBJECTIVE[entry.family] || null) : null;
+}
+
+function guidanceFor(objective, held, ai){
+  switch(objective){
+    case 'badugi':    return ai.drawGuidanceBadugi ? ai.drawGuidanceBadugi(held) : null;
+    case 'a5':        return ai.drawGuidanceA5 ? ai.drawGuidanceA5(held) : null;
+    case 'low27':     return ai.drawGuidance27 ? ai.drawGuidance27(held) : null;
+    case 'high':      return ai.drawGuidanceHigh ? ai.drawGuidanceHigh(held) : null;
+    case 'points49':  return ai.drawGuidance49 ? ai.drawGuidance49(held) : null;
+    case 'badugi+a5': return ai.drawGuidanceSplit
+      ? ai.drawGuidanceSplit(held, ai.drawGuidanceBadugi, ai.drawGuidanceA5) : null;
+    case 'badugi+27': return ai.drawGuidanceSplit
+      ? ai.drawGuidanceSplit(held, ai.drawGuidanceBadugi, ai.drawGuidance27) : null;
+    case 'high+a5':   return ai.drawGuidanceSplit
+      ? ai.drawGuidanceSplit(held, ai.drawGuidanceHigh, ai.drawGuidanceA5) : null;
+    default: return null;
+  }
+}
+
+function aiDiscardSlots(dealCat, gameName, hand, ai, showdown){
   const held = hand || [];
   if(!ai || held.length === 0) return [];
 
   let guidance = null;
   try {
-    if(dealCat === 'draw4' || /Badugi/.test(gameName || '')){
-      guidance = ai.drawGuidanceBadugi ? ai.drawGuidanceBadugi(held) : null;
-    } else if(/2-7|Baducey/.test(gameName || '')){
-      guidance = ai.drawGuidance27 ? ai.drawGuidance27(held) : null;
-    } else if(/A-5|Badacey|Razz/.test(gameName || '')){
-      guidance = ai.drawGuidanceA5 ? ai.drawGuidanceA5(held) : null;
+    const objective = objectiveFor(gameName, showdown);
+    guidance = objective ? guidanceFor(objective, held, ai) : null;
+    // Badugi is a four-card game; if the registry is unavailable fall back to
+    // the one thing the deal category tells us for certain.
+    if(!guidance && dealCat === 'draw4' && ai.drawGuidanceBadugi){
+      guidance = ai.drawGuidanceBadugi(held);
     }
   } catch(err){ guidance = null; }
 
@@ -210,7 +254,25 @@ exports.currentDrawer = currentDrawer;
 exports.isLegalDraw = isLegalDraw;
 exports.applyDraw = applyDraw;
 exports.completeSeatDraw = completeSeatDraw;
+/* ---------- Super Pat ----------
+   A Super Stud seat may keep all five original cards instead of trimming to
+   three. Nothing in production ever made this decision for an AI seat, so
+   every seat discarded every hand and 440 simulated hands produced ZERO pat
+   locks. The judgement is delegated: the caller supplies the same split-pot
+   tier function the betting model already uses, so "is this worth locking"
+   and "is this worth betting" can never disagree. */
+function aiPatDecision(hand, tierFn, minTier){
+  const held = hand || [];
+  if(typeof tierFn !== 'function' || held.length < 5) return false;
+  try {
+    return tierFn(held) >= (minTier === undefined ? 2 : minTier);  // STRONG or better
+  } catch(err){ return false; }
+}
+
 exports.aiDiscardSlots = aiDiscardSlots;
+exports.objectiveFor = objectiveFor;
+exports.aiPatDecision = aiPatDecision;
+exports.DRAW_OBJECTIVE = DRAW_OBJECTIVE;
 exports.drawCoach = drawCoach;
 exports.drawLabel = drawLabel;
 exports.drawHelp = drawHelp;
