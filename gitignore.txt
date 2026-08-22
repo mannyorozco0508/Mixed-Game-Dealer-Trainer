@@ -1,0 +1,14 @@
+# Dependencies — installed via `npm install`, never committed.
+# These were tracked (1,419 files), which is what made earlier diffs enormous.
+node_modules/
+
+# Audit and simulation artifacts. Harnesses are run ad hoc during audits and
+# are NOT part of the permanent suite; the permanent tests are test-*.js.
+audit-*.js
+audit-*.json
+draw-sim.js
+draw-data.json
+
+# Historical patch artifacts. Applying a patch is what changes code; storing
+# one changes nothing.
+*.patch
