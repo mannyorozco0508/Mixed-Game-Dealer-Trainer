@@ -2337,16 +2337,66 @@ function upCardsBySeat(){
   return out;
 }
 
+/* Big blind = two live seats left of the button, matching the order
+   money-state.postBlinds() uses when it commits the chips. */
+function bigBlindSeatFrom(button){
+  const nextLive = from => {
+    for(let n = 1; n <= tableSeats; n++){
+      const s = (from + n) % tableSeats;
+      if(s !== sitOutSeatIndex && moneyState && moneyState.stacks[s] !== undefined) return s;
+    }
+    return null;
+  };
+  const sb = nextLive(button);
+  return sb === null ? null : nextLive(sb);
+}
+
+/* The cap COUNT belongs to money-state; the round only needs the answer.
+   Heads-up removes the cap, which is what betting-engine already documents. */
+function refreshRaiseCap(){
+  if(!currentRound || !window.RailMoney || !moneyState) return;
+  let live = 0;
+  for(let i = 0; i < tableSeats; i++){
+    if(i !== sitOutSeatIndex && !foldedSeats.has(i)) live++;
+  }
+  currentRound.raiseCapped = live > 2 && window.RailMoney.raiseCapReached(moneyState);
+}
+
 function startActionRound(){
   if(!window.RailAction || !currentScenario) return;
   const game = currentScenario;
   const highBringsIn = game.name.indexOf('Stud Hi-Lo') !== 0; // Hi-Lo: low brings in
+  // A seat that ran out of chips on an earlier street is still in the hand,
+  // but it can never act again. The round has no money model, so the table
+  // tells it which seats those are.
+  const allInNow = [];
+  if(moneyState && moneyState.allIn){
+    for(let i = 0; i < tableSeats; i++) if(moneyState.allIn[i]) allInNow.push(i);
+  }
+  // A forced bet is live only on the opening street, and only while the money
+  // model still shows it standing. Read from money-state rather than assumed,
+  // so a game with no blinds and no bring-in opens unbet as before.
+  let forcedBet = null, forcedBetSeat = null;
+  if(activeStepIndex === 0 && moneyState && moneyState.currentBet > 0){
+    if(window.RailAction.isButtonGame(game.dealCat)){
+      if(buttonSeatIndex !== null && buttonSeatIndex !== undefined){
+        forcedBet = 'blinds';
+        forcedBetSeat = bigBlindSeatFrom(buttonSeatIndex);
+      }
+    } else if(currentBringInSeat !== null && currentBringInSeat !== undefined){
+      forcedBet = 'bring-in';
+      forcedBetSeat = currentBringInSeat;
+    }
+  }
   currentRound = window.RailAction.createRound({
     dealCat: game.dealCat,
     tableSeats: tableSeats,
     buttonSeat: buttonSeatIndex,
     sitOutSeat: sitOutSeatIndex,
     foldedSeats: foldedSeats,
+    allInSeats: allInNow,
+    forcedBet: forcedBet,
+    forcedBetSeat: forcedBetSeat,
     street: activeStepIndex,
     upCards: upCardsBySeat(),
     highBringsIn: highBringsIn
@@ -2358,6 +2408,10 @@ function runNextAction(){
   if(!currentRound || currentRound.complete){ finishActionRound(); return; }
   const seat = currentRound.current;
   if(seat === null || seat === undefined){ finishActionRound(); return; }
+
+  // Before ANY decision — the human's option list comes from the same
+  // legalActions() call, so this must run ahead of both branches below.
+  refreshRaiseCap();
 
   highlightActingSeat(seat);
 
@@ -2424,6 +2478,11 @@ function runNextAction(){
     if(window.RailMoney && moneyState && moneyState.stacks[seat] !== undefined){
       amount = window.RailMoney.applyMoneyAction(moneyState, seat, action, activeStepIndex);
       wasAllIn = moneyState.allIn[seat];
+      // Out of chips: the seat stays in the hand but is done acting. Told to
+      // the round immediately, or it keeps getting the turn.
+      if(wasAllIn && window.RailAction.markAllIn){
+        currentRound = window.RailAction.markAllIn(currentRound, seat);
+      }
     }
     if(action === 'fold'){
       foldedSeats.add(seat);
