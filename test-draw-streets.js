@@ -60,15 +60,25 @@ console.log('=== Physical draws match the rules, not the labels ===');
 console.log('=== The label and the trigger genuinely disagree ===');
 {
   // If these ever became equal the bug would be back and invisible.
+  // Drawmaha Hi joined this list once it stopped carrying its own short
+  // inline scenario and started using the shared generator like the others.
   ['Badugi','A-5 Lowball','2-7 Lowball','Badacey','Baducey','Archie',
-   'Drawmaha A-5','Drawmaha 2-7','Drawmaha 49','Drawmaha Badugi'].forEach(name => {
+   'Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7','Drawmaha 49','Drawmaha Badugi'].forEach(name => {
     const g = byName(name);
     check(name + ': more Draw-labelled steps than physical ones',
           labelled(g).length > physical(g).length,
           'labelled=' + labelled(g).length + ' physical=' + physical(g).length);
   });
-  const hi = byName('Drawmaha Hi');
-  check('Drawmaha Hi has one of each', labelled(hi).length === 1 && physical(hi).length === 1);
+  // Every Drawmaha variant must now share one physical shape.
+  const shapes = ['Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7','Drawmaha 49','Drawmaha Badugi']
+    .map(n => physical(byName(n)).length);
+  check('all five Drawmaha variants declare exactly one physical draw',
+        shapes.every(v => v === 1), JSON.stringify(shapes));
+  const lens = ['Drawmaha A-5','Drawmaha 2-7','Drawmaha 49','Drawmaha Badugi']
+    .map(n => byName(n).scenario.length);
+  check('Drawmaha Hi is no longer shorter than its own physical flow',
+        byName('Drawmaha Hi').scenario.length >= 7,
+        byName('Drawmaha Hi').scenario.length + ' vs ' + JSON.stringify(lens));
 }
 
 console.log('=== Teaching steps are never physical ===');
