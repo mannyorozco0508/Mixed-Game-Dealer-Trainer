@@ -387,6 +387,51 @@ function actionDelay(action, baseDelay){
   }
 }
 
+/* ---------- Pot-limit sizing ----------
+   money-state has always accepted opts.desiredTo for a pot-limit bet or
+   raise, and it clamps that value between the minimum legal raise and the
+   pot maximum. It had ZERO callers, so every AI wager in Big O PLO resolved
+   to maxRaiseTo — the AI potted every single time. Measured: 24.4% of PLO
+   actions all-in, action never past street 3, no hand ever ending before
+   showdown.
+
+   The choice is expressed as a fraction of the LEGAL RANGE (min raise to pot
+   maximum), so the arithmetic stays entirely money-state's business and this
+   only supplies intent. Reasoning:
+
+     PREMIUM  bets big for value, but a trapper still underplays one
+     STRONG   sizes to build without committing the stack
+     MARGINAL keeps the pot small — the whole point of a marginal holding
+     WEAK     a bluff is priced to fold people out, and bluffBias decides
+              who is willing to make that price
+
+   Jitter spreads each seat's choices so the same player is not readable by
+   bet size alone. Pot remains available at the top of the range — it is a
+   strategic option again rather than the automatic result. */
+function potLimitSizing(o){
+  const opts = o || {};
+  const minTo = opts.minTo, maxTo = opts.maxTo;
+  if(!(typeof minTo === 'number' && typeof maxTo === 'number')) return null;
+  if(maxTo <= minTo) return maxTo;      // no room to choose: short stack / all-in
+  const p = opts.personality || personalityFor(opts.seat || 0);
+  const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
+  const tier = opts.tier === undefined ? AI.TIER.MARGINAL : opts.tier;
+
+  let base;
+  if(tier >= AI.TIER.PREMIUM)      base = 0.72;
+  else if(tier >= AI.TIER.STRONG)  base = 0.54;
+  else if(tier >= AI.TIER.MARGINAL) base = 0.34;
+  else                              base = 0.28;
+
+  base += p.betBias  * 0.06;            // aggressive types size up
+  base -= p.trapBias * 0.05;            // trappers underplay a monster
+  if(opts.phase === 'late') base += 0.08;
+  if(tier === AI.TIER.WEAK) base += p.bluffBias * 0.07;
+
+  const frac = clamp(base + (rng() - 0.5) * 0.30, 0.05, 1);
+  return Math.round(minTo + (maxTo - minTo) * frac);
+}
+
 /* A tiny seeded generator so distribution tests are repeatable. */
 function seededRng(seed){
   // Mix the seed before use. A raw LCG's FIRST output barely changes between
@@ -416,6 +461,7 @@ exports.tierForStreet = tierForStreet;
 exports.streetPhase = streetPhase;
 exports.shapeAction = shapeAction;
 exports.actionDelay = actionDelay;
+exports.potLimitSizing = potLimitSizing;
 exports.seededRng = seededRng;
 
 })(
