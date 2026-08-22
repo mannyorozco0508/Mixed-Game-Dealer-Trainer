@@ -466,7 +466,7 @@ console.log('=== End-to-end Play & Learn hands ===');
 {
   const GAMES = ["Texas Hold'em", 'Big O Hi-Lo', 'Stud Hi-Lo / 8-or-Better', 'Razz',
                  'Badugi', '2-7 Lowball', 'Super Stud Hi-Lo 8 / Super Pat',
-                 'Drawmaha Hi', 'Pineapple', 'Crazy Pineapple', 'Double Board Omaha'];
+                 'Drawmaha Hi', 'Pineapple', 'Crazy Pineapple', 'Big-O Double Board'];
   const HANDS = 5;
   let started = 0, completed = 0, crashed = 0, aiForHuman = 0;
   let visFail = 0, moneyFail = 0, dupFail = 0, missingDecision = 0;
