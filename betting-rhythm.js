@@ -417,6 +417,19 @@ function potLimitSizing(o){
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
   const tier = opts.tier === undefined ? AI.TIER.MARGINAL : opts.tier;
 
+  /* A FULL POT bet is a distinct strategic choice, not the tail of a
+     distribution. Sizing purely by fraction meant the top of the range was
+     never actually reached, which is the opposite error to always potting:
+     a premium hand in pot-limit does sometimes just say "pot", and a
+     polarised bluff does too. Trappers do it least. */
+  let potChance = 0;
+  if(tier >= AI.TIER.PREMIUM)      potChance = 0.18;
+  else if(tier >= AI.TIER.STRONG)  potChance = 0.10;
+  else if(tier === AI.TIER.WEAK)   potChance = 0.06;   // polarised
+  potChance += p.betBias  * 0.04;
+  potChance -= p.trapBias * 0.03;
+  if(rng() < clamp(potChance, 0, 0.35)) return maxTo;
+
   let base;
   if(tier >= AI.TIER.PREMIUM)      base = 0.72;
   else if(tier >= AI.TIER.STRONG)  base = 0.54;
