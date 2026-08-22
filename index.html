@@ -3807,16 +3807,27 @@ function showHumanControls(seat){
     phase: 'action'
   });
 
-  qa.innerHTML = `
-    <div class="player-panel">
+  /* APPENDED, never assigned over the column.
+     renderStepContent() owns #qaColumn: it renders the street's question AND
+     the Continue Hand button, which is what actually advances the scenario.
+     Writing qa.innerHTML here destroyed both. The human then called the last
+     raise, the round closed correctly, money settled correctly — and there
+     was no control left on screen to move to the flop. The hand froze on
+     PRE-FLOP with nothing to press. Appending leaves the step's own controls
+     and their listeners intact. */
+  const existing = qa.querySelector('.player-panel');
+  if(existing) existing.remove();
+  const panel = document.createElement('div');
+  panel.className = 'player-panel';
+  panel.innerHTML = `
       <div class="player-turn">YOUR ACTION</div>
       ${help ? '<div class="player-help">' + help + '</div>' : ''}
       <div class="player-actions" id="playerActions"></div>
       <button class="help-toggle" id="helpToggle" aria-expanded="${playerSession.playerHelp ? 'true' : 'false'}">
         ${playerSession.playerHelp ? 'HIDE PLAYER HELP' : 'PLAYER HELP'}
       </button>
-      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
-    </div>`;
+      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}`;
+  qa.appendChild(panel);
 
   const toggle = document.getElementById('helpToggle');
   if(toggle) toggle.addEventListener('click', () => {
@@ -3845,20 +3856,30 @@ function showSpectatorPanel(kind){
   if(!qa || !inPlayerMode()) return;
   const coach = window.RailPlayer.dealerCoach(playerSession, coachState());
   const isFold = kind === 'folded';
-  qa.innerHTML = `
-    <div class="player-panel">
+  // Same rule as showHumanControls: append, never assign over the column.
+  // Folding used to wipe the street's question and its Continue Hand button,
+  // stranding the hand exactly as a closing call did.
+  const stale = qa.querySelector('.player-panel');
+  if(stale) stale.remove();
+  const panel = document.createElement('div');
+  panel.className = 'player-panel';
+  panel.innerHTML = `
       <div class="player-status ${isFold ? 'folded' : 'allin'}">${isFold ? 'FOLDED' : 'ALL-IN'}</div>
       <div class="player-help">${isFold
         ? 'Your hand is dead for this pot. The hand plays on \u2014 watch how the dealer runs it out.'
         : 'You have no chips left to bet, but your hand is still live for every pot you funded.'}</div>
       <div class="watch-note">WATCH REST OF HAND</div>
-      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}
-    </div>`;
+      ${coach ? '<div class="dealer-coach"><span class="coach-tag">DEALER COACH</span>' + coach + '</div>' : ''}`;
+  qa.appendChild(panel);
 }
 
 function clearHumanControls(){
+  // Remove ONLY the player's own panel. Emptying the whole column also threw
+  // away the street's question and its Continue Hand button, leaving the hand
+  // with no way to advance after the human's final betting action.
   const qa = document.getElementById('qaColumn');
-  if(qa && qa.querySelector('.player-panel')) qa.innerHTML = '';
+  const panel = qa && qa.querySelector('.player-panel');
+  if(panel) panel.remove();
 }
 
 function submitHumanAction(seat, opt){
