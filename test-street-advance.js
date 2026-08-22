@@ -237,7 +237,7 @@ console.log('=== The same boundary across game families ===');
 {
   [['Texas Hold\'em', 1, 7], ['Big O Hi-Lo', 1, 7], ['Big O PLO', 1, 7],
    ['Stud Hi-Lo / 8-or-Better', 1, 7], ['Razz', 1, 7], ['Badugi', 1, 7],
-   ['2-7 Lowball', 1, 6], ['Pineapple', 2, 7], ['Double Board Omaha', 1, 7],
+   ['2-7 Lowball', 1, 6], ['Pineapple', 2, 7], ['Big-O Double Board', 1, 7],
    ['Super Stud Hi-Lo 8 / Super Pat', 1, 7]].forEach(([name, step, seats], i) => {
     const r = playStreet(name, 6100 + i * 71, step, 'call|check', seats);
     check(name + ': the human acted', r.humanActs > 0, String(r.humanActs));
