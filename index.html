@@ -2383,6 +2383,11 @@ function runNextAction(){
     const tier = window.RailRhythm
       ? window.RailRhythm.tierForStreet({
           cards: held, board, family,
+          // Authoritative street: the same step/total pair that drives
+          // streetPhase() for shapeAction below. Card count is NOT a street —
+          // Super Stud holds five cards on its opening street.
+          street: activeStepIndex,
+          totalStreets: currentScenario.scenario.length,
           fullTier: () => window.RailAction.tierForSeat(held, board, family)
         })
       : window.RailAction.tierForSeat(held, board, family);
