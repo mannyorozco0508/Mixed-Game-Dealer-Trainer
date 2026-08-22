@@ -1,546 +1,546 @@
 {
-  "Texas Hold'em": {
-    "seed": 1000,
-    "dealCat": "holdem",
-    "sitOut": null,
-    "button": 3,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 38,
-    "holeSizes": [
-      2,
-      2,
-      2,
-      2,
-      2,
-      2,
-      2
-    ]
-  },
-  "Big O Hi-Lo": {
-    "seed": 1001,
-    "dealCat": "bigO",
-    "sitOut": null,
-    "button": null,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 17,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Big O PLO": {
-    "seed": 1002,
-    "dealCat": "bigO",
-    "sitOut": null,
-    "button": null,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 17,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Stud Hi-Lo / 8-or-Better": {
-    "seed": 1003,
-    "dealCat": "studSplit",
-    "sitOut": null,
-    "button": null,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 31,
-    "holeSizes": [
-      3,
-      3,
-      3,
-      3,
-      3,
-      3,
-      3
-    ]
-  },
-  "Razz": {
-    "seed": 1004,
-    "dealCat": "studSplit",
-    "sitOut": null,
-    "button": null,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 31,
-    "holeSizes": [
-      3,
-      3,
-      3,
-      3,
-      3,
-      3,
-      3
-    ]
-  },
-  "Super Stud Hi-Lo 8 / Super Pat": {
-    "seed": 1005,
-    "dealCat": "superStud",
-    "sitOut": null,
-    "button": null,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 17,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Badugi": {
-    "seed": 1006,
-    "dealCat": "draw4",
-    "sitOut": null,
-    "button": 3,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 24,
-    "holeSizes": [
-      4,
-      4,
-      4,
-      4,
-      4,
-      4,
-      4
-    ]
-  },
-  "A-5 Lowball": {
-    "seed": 1007,
-    "dealCat": "draw5",
-    "sitOut": 4,
-    "button": 1,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      0,
-      5,
-      5
-    ]
-  },
-  "2-7 Lowball": {
-    "seed": 1008,
-    "dealCat": "draw5",
-    "sitOut": 2,
-    "button": 6,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      5,
-      5,
-      0,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Badacey": {
-    "seed": 1009,
-    "dealCat": "draw5",
-    "sitOut": 0,
-    "button": 4,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      0,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Baducey": {
-    "seed": 1010,
-    "dealCat": "draw5",
-    "sitOut": 5,
-    "button": 2,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      5,
-      0,
-      5
-    ]
-  },
-  "Archie": {
-    "seed": 1011,
-    "dealCat": "draw5",
-    "sitOut": 2,
-    "button": 6,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      5,
-      5,
-      0,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Drawmaha Hi": {
-    "seed": 1012,
-    "dealCat": "drawmaha",
-    "sitOut": 0,
-    "button": 4,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 22,
-    "holeSizes": [
-      0,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Double Board Omaha": {
-    "seed": 1013,
-    "dealCat": "doubleBoard",
-    "sitOut": null,
-    "button": 2,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 17,
-    "holeSizes": [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
-    ]
-  },
-  "Pineapple": {
-    "seed": 1014,
-    "dealCat": "pineapple",
-    "sitOut": null,
-    "button": 0,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 31,
-    "holeSizes": [
-      3,
-      3,
-      3,
-      3,
-      3,
-      3,
-      3
-    ]
-  },
-  "Crazy Pineapple": {
-    "seed": 1015,
-    "dealCat": "crazyPineapple",
-    "sitOut": null,
-    "button": 5,
-    "slotMaps": [
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      []
-    ],
-    "dealtCounts": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "remainingCount": 31,
-    "holeSizes": [
-      3,
-      3,
-      3,
-      3,
-      3,
-      3,
-      3
-    ]
-  }
+ "Texas Hold'em": {
+  "seed": 1000,
+  "dealCat": "holdem",
+  "sitOut": null,
+  "button": 3,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 38,
+  "holeSizes": [
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2
+  ]
+ },
+ "Big O Hi-Lo": {
+  "seed": 1001,
+  "dealCat": "bigO",
+  "sitOut": null,
+  "button": null,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 17,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Big O PLO": {
+  "seed": 1002,
+  "dealCat": "bigO",
+  "sitOut": null,
+  "button": null,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 17,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Stud Hi-Lo / 8-or-Better": {
+  "seed": 1003,
+  "dealCat": "studSplit",
+  "sitOut": null,
+  "button": null,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 31,
+  "holeSizes": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ]
+ },
+ "Razz": {
+  "seed": 1004,
+  "dealCat": "studSplit",
+  "sitOut": null,
+  "button": null,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 31,
+  "holeSizes": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ]
+ },
+ "Super Stud Hi-Lo 8 / Super Pat": {
+  "seed": 1005,
+  "dealCat": "superStud",
+  "sitOut": null,
+  "button": null,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 17,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Badugi": {
+  "seed": 1006,
+  "dealCat": "draw4",
+  "sitOut": null,
+  "button": 3,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 24,
+  "holeSizes": [
+   4,
+   4,
+   4,
+   4,
+   4,
+   4,
+   4
+  ]
+ },
+ "A-5 Lowball": {
+  "seed": 1007,
+  "dealCat": "draw5",
+  "sitOut": 4,
+  "button": 1,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   0,
+   5,
+   5
+  ]
+ },
+ "2-7 Lowball": {
+  "seed": 1008,
+  "dealCat": "draw5",
+  "sitOut": 2,
+  "button": 6,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   5,
+   5,
+   0,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Badacey": {
+  "seed": 1009,
+  "dealCat": "draw5",
+  "sitOut": 0,
+  "button": 4,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   0,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Baducey": {
+  "seed": 1010,
+  "dealCat": "draw5",
+  "sitOut": 5,
+  "button": 2,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   5,
+   0,
+   5
+  ]
+ },
+ "Archie": {
+  "seed": 1011,
+  "dealCat": "draw5",
+  "sitOut": 2,
+  "button": 6,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   5,
+   5,
+   0,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Drawmaha Hi": {
+  "seed": 1012,
+  "dealCat": "drawmaha",
+  "sitOut": 0,
+  "button": 4,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 22,
+  "holeSizes": [
+   0,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ },
+ "Pineapple": {
+  "seed": 1014,
+  "dealCat": "pineapple",
+  "sitOut": null,
+  "button": 0,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 31,
+  "holeSizes": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ]
+ },
+ "Crazy Pineapple": {
+  "seed": 1015,
+  "dealCat": "crazyPineapple",
+  "sitOut": null,
+  "button": 5,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 31,
+  "holeSizes": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ]
+ },
+ "Big-O Double Board": {
+  "seed": 1013,
+  "dealCat": "doubleBoard",
+  "sitOut": null,
+  "button": 2,
+  "slotMaps": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "dealtCounts": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "remainingCount": 17,
+  "holeSizes": [
+   5,
+   5,
+   5,
+   5,
+   5,
+   5,
+   5
+  ]
+ }
 }
