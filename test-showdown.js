@@ -239,7 +239,7 @@ console.log('=== Double board ===');
 {
   // 18. different winners per board
   const db = S.evaluateShowdown({
-    game: g('Double Board Omaha'),
+    game: g('Big-O Double Board'),
     players: [
       { seat:0, cards: cards('AS KS 2H 3D 4C') },
       { seat:1, cards: cards('9C 9D TH TS 2C') }
@@ -252,7 +252,7 @@ console.log('=== Double board ===');
 
   // 19. double board tie (identical hole cards -> same result both boards)
   const dbTie = S.evaluateShowdown({
-    game: g('Double Board Omaha'),
+    game: g('Big-O Double Board'),
     players: [
       { seat:0, cards: cards('2C 3D 4H 5S 7C') },
       { seat:1, cards: cards('2D 3H 4S 5C 7D') }
@@ -284,7 +284,7 @@ console.log('=== Coverage: every canonical game ===');
     'Stud Hi-Lo / 8-or-Better','Razz','Super Stud Hi-Lo 8 / Super Pat',
     'Super Baducey','Super Badacey','Big O Hi-Lo','Big O PLO',
     'Drawmaha Hi','Drawmaha A-5','Drawmaha 2-7',
-    'Drawmaha 49','Drawmaha Badugi','Double Board Omaha','Pineapple',
+    'Drawmaha 49','Drawmaha Badugi','Big-O Double Board','Pineapple',
     'Crazy Pineapple',"Texas Hold'em"
   ];
   const GAME_COUNT = allGames.length;
