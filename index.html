@@ -2402,7 +2402,7 @@ function isAiDrawStep(){
   if(!window.RailDraw || !currentScenario) return false;
   if(!window.RailDraw.isDrawGame(currentScenario.dealCat)) return false;
   const step = currentScenario.scenario[activeStepIndex];
-  return !!(step && /^Draw/i.test(step.street));
+  return !!(step && step.requiresDraw);
 }
 function runAiDraws(){
   if(!window.RailDraw || !window.RailAI || !currentScenario) return;
@@ -3516,24 +3516,33 @@ function needsFixedChoiceBefore(step){
 // True when the current scenario step is one of the game's real draws.
 // Derived from the step's own street label, so inserted training questions
 // never shift which steps are draws.
+/* A step causes a physical draw ONLY when the scenario says so.
+   This used to test /^Draw/i against the human-readable street label, which
+   made the label the poker engine's trigger: every triple-draw game carries a
+   difficulty-3 teaching question labelled "Draw 2" (about mid-hand reshuffle)
+   and four Drawmaha variants carry a "Draw Declared" dispute question plus a
+   "Draw" strategy quiz. None of those move a card, but all of them matched.
+   AI seats drew four times in a three-draw game and three times in Drawmaha.
+   requiresDraw is set in game-data on the streets that genuinely replace
+   cards, so a training prompt can be called anything without dealing. */
 function isDrawStep(){
   if(!window.RailDraw || !currentScenario) return false;
   if(!window.RailDraw.isDrawGame(currentScenario.dealCat)) return false;
   const step = currentScenario.scenario[activeStepIndex];
-  if(!step || !/^Draw/i.test(step.street)) return false;
-  return drawStepIndex() > 0;
+  return !!(step && step.requiresDraw);
 }
 
 // Which draw this is (1-based), counting only real draw streets up to here.
 function drawStepIndex(){
   if(!currentScenario) return 0;
-  const seen = [];
+  // Counts PHYSICAL draws only, so the number shown to the player matches the
+  // number of times cards actually change.
+  let n = 0;
   for(let i = 0; i <= activeStepIndex; i++){
     const s = currentScenario.scenario[i];
-    if(s && /^Draw/i.test(s.street) && seen.indexOf(s.street) === -1) seen.push(s.street);
+    if(s && s.requiresDraw) n++;
   }
-  const cur = currentScenario.scenario[activeStepIndex];
-  return cur ? seen.indexOf(cur.street) + 1 : 0;
+  return n;
 }
 
 function showCardChoice(forStep){
