@@ -2500,6 +2500,63 @@ function startActionRound(){
   runNextAction();
 }
 
+/* The seat's decision, computed synchronously. Extracted verbatim from the
+   action timer so the pause can be scaled by WHAT was decided. Reads state,
+   never writes it. */
+function decideActionForSeat(seat){
+  if(!currentRound || !currentScenario) return null;
+  const family = tierFamilyForGame(currentScenario);
+  const board = showdownBoard.length ? showdownBoard : tableBoardCards;
+  const held = heldCards(seat);
+
+  // Read the hand on EVERY street. The old path returned MARGINAL whenever
+  // fewer than five cards existed, which made the whole table check until
+  // the last street.
+  const tier = window.RailRhythm
+    ? window.RailRhythm.tierForStreet({
+        cards: held, board, family,
+        // Authoritative street: the same step/total pair that drives
+        // streetPhase() for shapeAction below. Card count is NOT a street —
+        // Super Stud holds five cards on its opening street.
+        street: activeStepIndex,
+        totalStreets: currentScenario.scenario.length,
+        fullTier: () => window.RailAction.tierForSeat(held, board, family)
+      })
+    : window.RailAction.tierForSeat(held, board, family);
+
+  let action = window.RailAction.chooseAction(currentRound, {
+    tier: tier, loosenessBias: seatLoosenessFor(seat)
+  });
+
+  // Shape by stable per-seat personality and street, never illegally.
+  if(window.RailRhythm){
+    const liveSeats = [];
+    for(let i = 0; i < tableSeats; i++){
+      if(i !== sitOutSeatIndex && !foldedSeats.has(i)) liveSeats.push(i);
+    }
+    const potNow = moneyState
+      ? moneyState.pot + moneyState.seats.reduce((n,s) => n + moneyState.streetContrib[s], 0) : 0;
+    action = window.RailRhythm.shapeAction(action, {
+      seat,
+      legal: window.RailAction.legalActions(currentRound),
+      tier,
+      phase: window.RailRhythm.streetPhase(activeStepIndex, currentScenario.scenario.length),
+      personality: window.RailRhythm.personalityFor(seat),
+      // Price context: what a call costs relative to what is out there.
+      toCall: (moneyState && window.RailMoney) ? window.RailMoney.callAmount(moneyState, seat) : 0,
+      potSize: potNow,
+      // How many wagers this street has already seen. Legality is decided by
+      // the cap (and its heads-up exemption); this is only how much appetite
+      // a player has left for yet another raise.
+      raisesSoFar: moneyState ? moneyState.raisesThisStreet : 0,
+      invested: moneyState ? moneyState.handContrib[seat] : 0,
+      stack: moneyState ? moneyState.stacks[seat] : 0,
+      playersLeft: liveSeats.length
+    });
+  }
+  return { action, tier };
+}
+
 function runNextAction(){
   if(!currentRound || currentRound.complete){ finishActionRound(); return; }
   const seat = currentRound.current;
@@ -2520,63 +2577,48 @@ function runNextAction(){
 
   const generation = actionGeneration;
   // Pace is set by the training mode so Learn is followable and Table Ready is brisk.
-  let delay = window.RailModes ? window.RailModes.actionDelay(currentMode) : 500;
+  // Mode sets the PACE; the action decides how long that particular decision
+  // takes. RailRhythm.actionDelay was written for exactly this and had no
+  // caller, so a fold and a three-bet both took the same ~500ms and the table
+  // moved at one flat cadence.
+  let baseDelay = window.RailModes ? window.RailModes.actionDelay(currentMode) : 500;
+  /* The decision itself is computed NOW, but nothing is applied or shown until
+     the pause has elapsed. That pause is the seat's thinking time, and it is
+     scaled by what the seat decided to do — a fold reads faster than a raise.
+     Nothing about the DECISION changes; only when it becomes visible.
+     Guarded by actionGeneration exactly as before, so an abandoned hand can
+     still never mutate a new table. */
+  const decided = decideActionForSeat(seat);
+  if(decided === null) return;
+  let delay = (window.RailRhythm && window.RailRhythm.actionDelay)
+    ? window.RailRhythm.actionDelay(decided.action, baseDelay)
+    : baseDelay;
   pendingActionTimers.push(setTimeout(() => {
     if(generation !== actionGeneration) return; // stale — abandoned hand
-    const family = tierFamilyForGame(currentScenario);
-    const board = showdownBoard.length ? showdownBoard : tableBoardCards;
-    const held = heldCards(seat);
-
-    // Read the hand on EVERY street. The old path returned MARGINAL whenever
-    // fewer than five cards existed, which made the whole table check until
-    // the last street.
-    const tier = window.RailRhythm
-      ? window.RailRhythm.tierForStreet({
-          cards: held, board, family,
-          // Authoritative street: the same step/total pair that drives
-          // streetPhase() for shapeAction below. Card count is NOT a street —
-          // Super Stud holds five cards on its opening street.
-          street: activeStepIndex,
-          totalStreets: currentScenario.scenario.length,
-          fullTier: () => window.RailAction.tierForSeat(held, board, family)
-        })
-      : window.RailAction.tierForSeat(held, board, family);
-
-    let action = window.RailAction.chooseAction(currentRound, {
-      tier: tier, loosenessBias: seatLoosenessFor(seat)
-    });
-
-    // Shape by stable per-seat personality and street, never illegally.
-    if(window.RailRhythm){
-      const liveSeats = [];
-      for(let i = 0; i < tableSeats; i++){
-        if(i !== sitOutSeatIndex && !foldedSeats.has(i)) liveSeats.push(i);
-      }
-      const potNow = moneyState
-        ? moneyState.pot + moneyState.seats.reduce((n,s) => n + moneyState.streetContrib[s], 0) : 0;
-      action = window.RailRhythm.shapeAction(action, {
-        seat,
-        legal: window.RailAction.legalActions(currentRound),
-        tier,
-        phase: window.RailRhythm.streetPhase(activeStepIndex, currentScenario.scenario.length),
-        personality: window.RailRhythm.personalityFor(seat),
-        // Price context: what a call costs relative to what is out there.
-        toCall: (moneyState && window.RailMoney) ? window.RailMoney.callAmount(moneyState, seat) : 0,
-        potSize: potNow,
-        // How many wagers this street has already seen. Legality is decided by
-        // the cap (and its heads-up exemption); this is only how much appetite
-        // a player has left for yet another raise.
-        raisesSoFar: moneyState ? moneyState.raisesThisStreet : 0,
-        invested: moneyState ? moneyState.handContrib[seat] : 0,
-        stack: moneyState ? moneyState.stacks[seat] : 0,
-        playersLeft: liveSeats.length
-      });
-    }
+    const action = decided.action;
+    const tier   = decided.tier;
+    // decision already made above; apply it now
     currentRound = window.RailAction.applyAction(currentRound, seat, action);
     // Apply REAL money for this action before rendering it.
     let amount = 0, wasAllIn = false;
     if(window.RailMoney && moneyState && moneyState.stacks[seat] !== undefined){
-      amount = window.RailMoney.applyMoneyAction(moneyState, seat, action, activeStepIndex);
+      // Pot-limit games get an INTENT. money-state clamps it between the
+      // minimum legal raise and the pot maximum, so this can never produce an
+      // illegal amount — it only stops every wager defaulting to the pot.
+      let moneyOpts;
+      if(moneyState.rules && moneyState.rules.type === 'potlimit' &&
+         (action === 'bet' || action === 'raise') && window.RailRhythm &&
+         window.RailRhythm.potLimitSizing){
+        const minTo = window.RailMoney.minRaiseTo(moneyState, activeStepIndex);
+        const maxTo = window.RailMoney.maxRaiseTo(moneyState, seat, activeStepIndex);
+        const to = window.RailRhythm.potLimitSizing({
+          seat, tier, personality: window.RailRhythm.personalityFor(seat),
+          phase: window.RailRhythm.streetPhase(activeStepIndex, currentScenario.scenario.length),
+          minTo, maxTo
+        });
+        if(to !== null) moneyOpts = { desiredTo: to };
+      }
+      amount = window.RailMoney.applyMoneyAction(moneyState, seat, action, activeStepIndex, moneyOpts);
       wasAllIn = moneyState.allIn[seat];
       // Out of chips: the seat stays in the hand but is done acting. Told to
       // the round immediately, or it keeps getting the turn.
