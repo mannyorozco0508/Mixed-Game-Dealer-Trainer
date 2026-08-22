@@ -769,63 +769,26 @@
           "Burn, deal river — betting round",
           "Showdown"
         ], notes:"50% best Omaha Hi (2 hand + 3 board) + 50% best 5-card draw Hi. Odd chip → best draw hand.",
-        scenario:[
-          {
-            street:"Deal",
-            prompt:"New hand. Cards are shuffled. What do you do first?",
-            options:[
-              {text:"Deal 5 hole cards to each player, no burn", correct:true, feedback:"Right — there's no burn before the very first deal of a hand. Burns start before the next street."},
-              {text:"Burn one card, then deal 5 hole cards", correct:false, feedback:"No burn before the initial deal — that's the very first cards out of a fresh shuffle. You'll start burning before the flop."},
-              {text:"Deal the flop first, then hole cards", correct:false, feedback:"Hole cards always go out before any board cards. The flop hasn't happened yet."}
-            ]
-          },
-          {
-            street:"Pre-Flop",
-            prompt:"Betting on the hole cards just wrapped up. What's next?",
-            options:[
-              {text:"Burn, then deal the flop (3 cards)", correct:true, feedback:"Correct. Golden rule — always burn before dealing new cards to the board, every time."},
-              {text:"Deal the flop, no burn needed", correct:false, feedback:"The Golden Rule applies here: you always burn before dealing to the board, even though it feels routine."},
-              {text:"Ask players to declare their draw now", correct:false, feedback:"Too early — the draw declaration comes after the flop is out and bet on, not before."}
-            ]
-          },
-          {
-            street:"Flop",
-            prompt:"Flop's out, betting is done. Players are ready to draw. What's next?",
-            options:[
-              {text:"Have players declare their draw (up to 3 cards) — no cards dealt yet", correct:true, feedback:"Right — declaration comes first. No burn or deal happens for a declaration, just players stating how many cards they want."},
-              {text:"Burn, then deal replacement cards immediately", correct:false, feedback:"Not yet — players need to declare how many cards they're drawing before anything gets dealt."},
-              {text:"Burn, then deal the turn to the board", correct:false, feedback:"The turn and the draw replacements happen together in this game, but the draw has to be declared first."}
-            ]
-          },
-          {
-            street:"Draw Declared",
-            requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
-            prompt:"Draws are declared. Now you deal the turn AND get players their replacement cards. How many times do you burn?",
-            options:[
-              {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. This is Drawmaha's signature quirk: one burn covers both the turn card and the players' replacement cards."},
-              {text:"Burn once for the turn, burn again before replacements", correct:false, feedback:"That's the instinct from other games, but Drawmaha only burns once here — the single burn covers both the turn and the replacement deal."},
-              {text:"No burn needed since players are just replacing cards", correct:false, feedback:"You do burn once — for the turn card going to the board. It just doesn't repeat for the replacement cards."}
-            ]
-          },
-          {
-            street:"Turn",
-            prompt:"Turn and replacements are out, betting's done. What's next?",
-            options:[
-              {text:"Burn, then deal the river", correct:true, feedback:"Correct — standard burn before the final board card."},
-              {text:"Deal the river with no burn", correct:false, feedback:"Golden Rule again — always burn before a new community card, including the river."},
-              {text:"Go straight to showdown", correct:false, feedback:"Not yet — the river still needs to come out and get bet on first."}
-            ]
-          },
-          {
-            street:"Showdown",
-            prompt:"River's out, final betting's done. The pot splits. What two hands are you awarding it to?",
-            options:[
+        /* Drawmaha Hi carried its own inline copy of the shared Drawmaha
+           steps, and that copy was two steps short of the drawmaha deal
+           pattern (8 entries). Scenario steps index the pattern 1:1, so its
+           "Turn" step landed on a board target of 3 and delivered nothing,
+           and its Showdown landed on 4 — the river was never dealt and the
+           board finished one card short in every hand.
+
+           It now uses the same generator the other four variants use, so the
+           physical shape can never drift from them again. No training content
+           was invented: the only step Hi gains is the existing difficulty-3
+           second-burn question already authored in drawmahaCommonSteps, and
+           its own showdown content is carried through unchanged. */
+        scenario: drawmahaScenario({
+          showdownPrompt:"River's out, final betting's done. The pot splits. What two hands are you awarding it to?",
+          showdownOptions:[
               {text:"50% best Omaha Hi (2 hole + 3 board) + 50% best 5-card draw hand (all 5 hole cards)", correct:true, feedback:"That's the split. And if there's an odd chip, it goes to the best draw hand, not the Omaha side."},
               {text:"50% best Omaha Hi + 50% best Omaha Lo", correct:false, feedback:"There's no Omaha Lo side in this game — that's a different split-pot format. Drawmaha Hi pairs Omaha Hi with a straight 5-card draw hand."},
               {text:"Whole pot to the best overall 5-card hand", correct:false, feedback:"This is a split-pot game — half goes to the board-based Omaha hand, half to the draw hand made entirely from hole cards."}
-            ]
-          }
-        ]},
+          ]
+        })},
         { name:"Drawmaha A-5", dealCat:"drawmaha", maxPlayers:6, pot:"split", meta:"5 hole cards · Omaha board · max 6", flow:[
           "Same flow as Drawmaha Hi — draw hand scored as A-5 low"
         ], notes:"50% Omaha Hi + 50% best A-5 low in hole cards. Odd chip → best draw hand.",
