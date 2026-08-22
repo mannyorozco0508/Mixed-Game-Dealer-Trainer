@@ -110,9 +110,18 @@ function tierForStreet(opts){
   // complete. A 5-card stud holding on 3rd street is nearly always just
   // high-card, which classified almost every seat WEAK. Use the developing
   // reader until the hand is genuinely near-final.
+  /* When the caller knows the real street, that is authoritative and card
+     count is not consulted. Super Stud deals five cards on the FIRST street,
+     so the count heuristic called 3rd street near-final and read a developing
+     hand as a finished one. Card count only stands in when no street is
+     supplied. Note the previous street-aware branch returned false
+     unconditionally, so supplying a street would have disabled the full
+     reader entirely — the branch had no meaning until now. */
   const nearFinal = o.nearFinal !== undefined
     ? o.nearFinal
-    : (o.street === undefined ? all.length >= 5 : false);
+    : (o.street === undefined
+        ? all.length >= 5
+        : (streetPhase(o.street, o.totalStreets) === 'late' && all.length >= 5));
   if(nearFinal && all.length >= 5 && typeof o.fullTier === 'function'){
     return o.fullTier();
   }
