@@ -111,11 +111,11 @@ const testBody = `
   }
   check('Sit-out seat received zero cards all hand', sitOutSeatIndex === null || seatCardCount(sitOutSeatIndex) === 0);
 
-  // ===== TEST 2: Double Board Omaha — two boards advancing independently =====
+  // ===== TEST 2: Big-O Double Board — two boards advancing independently =====
   console.log('');
-  console.log('=== Double Board Omaha: two boards ===');
+  console.log('=== Big-O Double Board: two boards ===');
   resetTableDom();
-  const db = findGame('Double Board Omaha');
+  const db = findGame('Big-O Double Board');
   currentScenario = db;
   buttonSeatIndex = null;
   buildTable(db, false);
