@@ -243,8 +243,20 @@ console.log('=== Pat state is per-seat and seat-generic ===');
         /seatPatLocked\s*=\s*hand\.seatPatLocked/.test(src));
   check('the human keep-list is cleared with every new hand',
         /humanKeepSlots = null;\s*\n\s*humanIsPat = false;/.test(src));
-  check('the lock is not special-cased to the human seat',
-        /isPatSeat: seat => !!seatPatLocked\[seat\]/.test(src));
+  // The original form of this check pinned the exact one-liner
+  //   isPatSeat: seat => !!seatPatLocked[seat]
+  // which stopped matching once AI seats gained their own Pat decision. The
+  // INTENT is unchanged and is now asserted directly: the lock itself is
+  // consulted for every seat with no human special-case, and the AI decision
+  // path is the only thing the human is excluded from.
+  check('the lock is consulted for every seat, human included',
+        /if\(seatPatLocked\[seat\]\) return true;/.test(src));
+  check('no seat is excluded from the lock itself',
+        !/seatPatLocked\[[^\]]*\]\s*&&\s*seat\s*!==/.test(src));
+  check('the AI never decides Pat for the human seat',
+        /seat === playerSession\.humanSeat\) return false;/.test(src));
+  check('the AI Pat decision is delegated, not invented here',
+        /RailDraw\.aiPatDecision\(/.test(src));
   check('the human Pat choice writes the seat lock',
         /if\(result\.pat\) seatPatLocked\[seat\] = true;/.test(src));
 
