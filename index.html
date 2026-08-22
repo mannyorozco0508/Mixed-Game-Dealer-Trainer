@@ -1405,24 +1405,64 @@
   }
 
   /* ---- Real money display ---- */
-  .pot-display{
+  /* ---- Dealer work area: board, then pot, then tucked burns ---- */
+  .dealer-work-area{
     position:absolute;
     left:50%;
-    top:24%;
-    transform:translateX(-50%);
+    top:50%;
+    transform:translate(-50%, -50%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    pointer-events:none;
+  }
+  /* The pot sits directly under the community cards and the burn pile tucks
+     beneath its lower edge, so the burns read as being UNDER the chips. */
+  .pot-area{
+    position:relative;
+    display:flex;
+    justify-content:center;
+    margin-top:3px;
+    padding-bottom:9px;      /* room for the burn corners to peek out */
+  }
+  .pot-display{
+    position:relative;
+    z-index:2;               /* the pot covers the burns */
     font-family:'IBM Plex Mono', monospace;
     font-size:11px;
     letter-spacing:0.08em;
     color:var(--brass-300);
-    background:rgba(11,46,34,0.85);
+    background:rgba(11,46,34,0.92);
     border:1px solid rgba(201,162,39,0.35);
     border-radius:2px;
     padding:3px 9px;
     white-space:nowrap;
     pointer-events:none;
   }
+  /* Face-down burns, overlapped and shifted down-left so only a corner of
+     each shows from under the pot — the shape a dealer actually leaves. */
+  .burn-pile{
+    position:absolute;
+    left:50%;
+    bottom:0;
+    transform:translateX(-58%);
+    z-index:1;
+    display:flex;
+    pointer-events:none;
+  }
+  .burn-pile .mini-card{
+    width:15px;
+    height:21px;
+    margin-right:-9px;       /* each burn tucks under the previous one */
+    border-radius:2px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.45);
+  }
+  .burn-pile .mini-card:last-child{ margin-right:0; }
   @media (min-width: 1000px) and (min-height: 501px){
     .pot-display{ font-size:13.5px; padding:4px 12px; }
+    .burn-pile .mini-card{ width:19px; height:27px; margin-right:-11px; }
+    .pot-area{ padding-bottom:12px; }
   }
 
   /* ---- AI player action states ---- */
@@ -3042,12 +3082,21 @@ function renderHandShell(){
         <div class="street-indicator" id="streetIndicator"></div>
         <div class="poker-table" id="pokerTable">
           <div class="table-oval"></div>
-          <div class="burn-pile" id="burnPile"></div>
-          <div class="pot-display" id="potDisplay"></div>
-          <div class="board-label" id="boardLabel1"></div>
-          <div class="board-row board1" id="boardRow1"></div>
-          <div class="board-label" id="boardLabel2"></div>
-          <div class="board-row board2" id="boardRow2"></div>
+          <!-- Dealer work area, in the order a real dealer uses it: community
+               cards in the centre, the pot immediately below them, and the
+               burn cards tucked under the pot's edge with only their corners
+               showing. The pot used to float ABOVE the board with the burn
+               pile above that, which is not how any table is managed. -->
+          <div class="dealer-work-area">
+            <div class="board-label" id="boardLabel1"></div>
+            <div class="board-row board1" id="boardRow1"></div>
+            <div class="board-label" id="boardLabel2"></div>
+            <div class="board-row board2" id="boardRow2"></div>
+            <div class="pot-area">
+              <div class="burn-pile" id="burnPile" aria-label="Burn cards"></div>
+              <div class="pot-display" id="potDisplay"></div>
+            </div>
+          </div>
           <div id="seatsEl"></div>
         </div>
         <div class="dealer-cue" id="dealerCue"></div>
