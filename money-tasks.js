@@ -197,12 +197,12 @@ function sidePotEligibilityTask(layerIndex){
       const missed = exp.filter(x => giv.indexOf(x) === -1);
       const extra = giv.filter(x => exp.indexOf(x) === -1);
       if(correct){
-        return 'Correct — ' + exp.map(P).join(' and ') + ' each funded this layer and are still live.';
+        return 'Correct — ' + exp.map(P).join(' and ') + ' each put in enough to reach this pot and are still live.';
       }
       const bits = [];
       if(extra.length) bits.push(extra.map(P).join(', ') +
         (extra.length > 1 ? ' are not eligible' : ' is not eligible') +
-        ' — a player either folded or did not put in enough to reach this layer.');
+        ' — a player either folded or did not put in enough to reach this pot.');
       if(missed.length) bits.push('You missed ' + missed.map(P).join(', ') + '.');
       bits.push('Eligible: ' + (exp.length ? exp.map(P).join(', ') : 'nobody') + '.');
       return bits.join(' ');
@@ -222,7 +222,7 @@ const foldVsAllInTask = {
     const folded = s.foldedSeats || [];
     const allIn = s.allInSeats || [];
     const base = 'Chips a folded player put in stay in the pot, but they can never win it. ' +
-      'An all-in player takes no more action yet REMAINS eligible for the layers they funded.' +
+      'An all-in player takes no more action yet REMAINS eligible for every pot they funded.' +
       (folded.length ? ' Folded: ' + folded.map(P).join(', ') + '.' : '') +
       (allIn.length ? ' All-in but live: ' + allIn.map(P).join(', ') + '.' : '');
     return correct ? 'Correct — ' + base : base;
@@ -287,7 +287,7 @@ const topBoardShareTask = {
   explain: (s, given, expected, correct) => {
     const base = 'The pot splits between the two high boards. ' +
       (s.bottomBoardShare !== undefined && expected > s.bottomBoardShare
-        ? 'This layer is odd, and the odd chip goes to the TOP board — ' + money(expected) + '.'
+        ? 'This pot is odd, and the odd chip goes to the TOP board — ' + money(expected) + '.'
         : 'That gives the top board ' + money(expected) + '.');
     return correct ? 'Correct — ' + base : base;
   }
