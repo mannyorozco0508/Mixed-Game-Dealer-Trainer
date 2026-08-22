@@ -111,7 +111,7 @@ console.log('=== Street transition, no DOM ===');
         [0,1,2,3,4,5].every(i => held(r.st, i).length === 5));
 }
 {
-  const r = runGame('Double Board Omaha', 6);
+  const r = runGame('Big-O Double Board', 6);
   check('Double Board: board1 reaches 5', r.st.tableBoardCards.length === 5);
   check('Double Board: board2 reaches 5', r.st.tableBoard2Cards.length === 5);
   const q = r.plans.flatMap(p => p.pitchQueue);
