@@ -23,16 +23,28 @@ const RANK_VALUE = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':
 
 /* ---------- Personalities ----------
    Derived deterministically from seat index: same seat behaves the same way
-   all hand, and tests are repeatable. */
+   all hand, and tests are repeatable.
+
+   betBias/callBias/foldBias tilt the ordinary decisions. trapBias and
+   bluffBias are separate on purpose: "how often do you underplay a monster"
+   and "how often do you attack with nothing" are different traits, and
+   collapsing them into aggression is what made the old table readable —
+   every strong hand raised, every weak hand folded, forever.
+
+   Seat 6 used to be a second copy of 'balanced', so seven seats held six
+   behaviours. It is now 'tricky': ordinary on the raw aggression axis but
+   the highest trap AND high bluff, so it is the hardest seat to read
+   rather than simply the loudest. */
 const PERSONALITIES = [
-  { id:'tight-passive',    betBias:-1, callBias: 0, foldBias: 1 },
-  { id:'balanced',         betBias: 0, callBias: 0, foldBias: 0 },
-  { id:'loose-passive',    betBias:-1, callBias: 1, foldBias:-1 },
-  { id:'aggressive',       betBias: 1, callBias: 0, foldBias: 0 },
-  { id:'tight-aggressive', betBias: 1, callBias:-1, foldBias: 1 },
-  { id:'loose-aggressive', betBias: 2, callBias: 1, foldBias:-1 },
-  { id:'balanced',         betBias: 0, callBias: 0, foldBias: 0 }
+  { id:'tight-passive',    betBias:-1.0, callBias: 0.0, foldBias: 1.2, trapBias:0.8, bluffBias:0.2 },
+  { id:'balanced',         betBias: 0.0, callBias: 0.0, foldBias: 0.0, trapBias:1.0, bluffBias:0.8 },
+  { id:'loose-passive',    betBias:-1.0, callBias: 1.4, foldBias:-1.0, trapBias:1.3, bluffBias:0.3 },
+  { id:'aggressive',       betBias: 1.4, callBias: 0.0, foldBias:-0.2, trapBias:0.5, bluffBias:1.5 },
+  { id:'tight-aggressive', betBias: 1.2, callBias:-1.0, foldBias: 1.2, trapBias:0.7, bluffBias:1.0 },
+  { id:'loose-aggressive', betBias: 2.0, callBias: 1.0, foldBias:-1.2, trapBias:0.6, bluffBias:1.8 },
+  { id:'tricky',           betBias: 1.0, callBias: 0.6, foldBias:-0.3, trapBias:1.7, bluffBias:2.2 }
 ];
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function personalityFor(seat){
   const i = ((seat % PERSONALITIES.length) + PERSONALITIES.length) % PERSONALITIES.length;
   return PERSONALITIES[i];
@@ -202,10 +214,26 @@ function priceAdjust(tier, price, opts){
 
   // Already invested: harder to release.
   if(o.commitment >= 0.25) adj += 1;
-  // Multiway pots offer better odds, so more hands continue.
-  if(o.playersLeft >= 4) adj += 1;
-  else if(o.playersLeft <= 2) adj -= 1;
+  // Multiway pots offer better odds, so more hands continue. Graded rather
+  // than a single step at four: three-handed and six-handed used to be
+  // indistinguishable, which made field size invisible in the action.
+  const pl = o.playersLeft === undefined ? 3 : o.playersLeft;
+  if(pl >= 5) adj += 1.5;
+  else if(pl === 4) adj += 1;
+  else if(pl === 3) adj += 0.3;
+  else if(pl <= 2) adj -= 1;
   return adj;
+}
+
+/* How much appetite is left for yet another raise on this street. Legality is
+   never touched — the fixed-limit cap and its heads-up exemption are the
+   engine's business. This is only willingness. A real player who has already
+   four-bet does not keep firing at a constant rate, but the old model did:
+   P(raise) measured 10.0% after zero raises and 11.2% after twenty, which is
+   what produced 40-raise heads-up wars until the stacks vanished. */
+function escalationDamping(raisesSoFar){
+  const n = Math.max(0, (raisesSoFar || 0) - 2);
+  return Math.pow(0.55, n);
 }
 
 /* ---------- Action shaping ----------
@@ -227,14 +255,45 @@ function shapeAction(baseAction, ctx){
     playersLeft: c.playersLeft === undefined ? 3 : c.playersLeft
   });
   let action = baseAction;
+  const escalate = escalationDamping(c.raisesSoFar);
+
+  /* ---- Premium is no longer a script ----
+     ai-players.decideAction returns RAISE (facing a bet) or BET (open) for
+     every premium hand, and nothing downstream ever reconsidered it: measured
+     100% raise / 0% call / 0% check. A monster that always raises is the most
+     readable seat at the table. Trapping is the correction, and trapBias
+     decides who does it. Folding a premium hand is still not on the menu. */
+  if(tier >= AI.TIER.PREMIUM && action === AI.ACTION.RAISE && allow(AI.ACTION.CALL)){
+    let trap = 0.22 * p.trapBias;
+    if(c.playersLeft >= 4) trap -= 0.06;   // less inclined to trap a big field
+    if(phase === 'late') trap += 0.05;
+    if(price > 0.45) trap += 0.08;         // very dear: sometimes just call it off
+    trap += (1 - escalate) * 0.45;         // stop re-raising a war forever
+    if(rng() < clamp(trap, 0.05, 0.85)) action = AI.ACTION.CALL;
+  }
+  else if(tier >= AI.TIER.PREMIUM && action === AI.ACTION.BET && allow(AI.ACTION.CHECK)){
+    let trap = 0.14 * p.trapBias;
+    if(phase === 'early') trap += 0.04;
+    if(c.playersLeft <= 2) trap += 0.05;   // easier to check-raise heads-up
+    if(rng() < clamp(trap, 0.03, 0.35)) action = AI.ACTION.CHECK;
+  }
 
   // A marginal hand that would simply check sometimes bets instead — this is
   // what breaks the check-around without changing strong-hand behavior.
-  if(action === AI.ACTION.CHECK && allow(AI.ACTION.BET)){
-    let chance = 0.16 + p.betBias * 0.10;
-    if(phase === 'early') chance += 0.08;      // action early, where it was absent
-    if(tier >= AI.TIER.STRONG) chance += 0.18;
-    if(tier === AI.TIER.WEAK) chance -= 0.08;
+  else if(action === AI.ACTION.CHECK && allow(AI.ACTION.BET)){
+    let chance;
+    if(tier === AI.TIER.WEAK){
+      // A pure bluff. Driven by bluffBias, not raw aggression, so a passive
+      // seat almost never does it and a tricky seat regularly does.
+      chance = 0.07 * p.bluffBias;
+      if(phase === 'late') chance += 0.03;
+      if(c.playersLeft <= 2) chance += 0.04;
+      else if(c.playersLeft >= 4) chance -= 0.02;
+    } else {
+      chance = 0.16 + p.betBias * 0.07;
+      if(phase === 'early') chance += 0.08;    // action early, where it was absent
+      if(tier >= AI.TIER.STRONG) chance += 0.18;
+    }
     if(rng() < Math.max(0, Math.min(0.55, chance))) action = AI.ACTION.BET;
   }
 
@@ -259,8 +318,13 @@ function shapeAction(baseAction, ctx){
       // a tight player still calls sometimes, a sticky player still folds.
       fold += p.foldBias * 0.16;
       fold -= p.callBias * 0.16;
+      // Chips already committed and a bigger field both make releasing
+      // harder. priceAdjust carries both, and this branch never consulted
+      // it — prior investment measured as having NO effect on folding.
+      // Kept small so sunk cost tilts the decision without excusing any call.
+      fold -= adj * 0.05;
+      fold -= clamp(commitment(c.invested, c.stack), 0, 0.6) * 0.22;
       fold = Math.max(0.08, Math.min(0.85, fold));
-      if(c.playersLeft !== undefined && c.playersLeft <= 2) fold += 0.08;
       if(phase === 'late') fold += 0.06;
       if(rng() < Math.max(0, Math.min(0.7, fold))) resolved = AI.ACTION.FOLD;
     }
@@ -271,6 +335,7 @@ function shapeAction(baseAction, ctx){
       else if(tier >= AI.TIER.STRONG) chance += 0.07;
       if(phase === 'late') chance += 0.03;
       if(price > 0.30) chance -= 0.04;
+      chance *= escalate;                  // appetite fades as the war drags on
       if(rng() < Math.max(0, Math.min(0.32, chance))) resolved = AI.ACTION.RAISE;
     }
     action = resolved;
@@ -288,6 +353,21 @@ function shapeAction(baseAction, ctx){
     if(phase === 'early') chance += 0.06;
     if(phase === 'late') chance -= 0.08;
     if(rng() < Math.max(0, Math.min(0.85, chance))) action = AI.ACTION.CALL;
+
+    /* Semi-bluff. A hand with nothing occasionally attacks instead of giving
+       up, which is the only reason anyone at this table ever has to doubt a
+       raise. Measured WEAK raise rate was exactly 0.0%, so every raise was a
+       real hand and the whole table was readable. Deliberately small, and
+       scaled by bluffBias so passive seats stay honest. */
+    if(action === AI.ACTION.FOLD && allow(AI.ACTION.RAISE) && tier <= AI.TIER.MARGINAL){
+      let bluff = 0.018 * p.bluffBias;
+      if(phase === 'late') bluff += 0.008;
+      if(c.playersLeft <= 2) bluff += 0.015;      // easier heads-up
+      else if(c.playersLeft >= 4) bluff -= 0.006; // rarely into a big field
+      if(price > 0.45) bluff *= 0.5;
+      bluff *= escalate;
+      if(rng() < clamp(bluff, 0, 0.08)) action = AI.ACTION.RAISE;
+    }
   }
 
   // Legality is absolute: never return something the round rejects.
