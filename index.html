@@ -954,19 +954,14 @@
     75%{ opacity:1; }
     100%{ opacity:0; }
   }
-  .burn-pile{
-    position:absolute;
-    left:14%;
-    top:78%;
-    display:flex;
-  }
+  /* The burn pile used to be parked at a fixed left:14%/top:78% of the table,
+     independent of the pot — it is now positioned inside .pot-area (see the
+     dealer work area rules below) so the burns and chips read as one working
+     area. Only the shared face-down appearance stays here; a stale absolute
+     position left in place would have fought the new anchor. */
   .burn-pile .mini-card.face-down{
-    width:13px;
-    height:19px;
-    margin-left:-9px;
     animation:none;
   }
-  .burn-pile .mini-card.face-down:first-child{ margin-left:0; }
   .chip-stack{
     font-family:'IBM Plex Mono', monospace;
     font-size:8px;
@@ -1406,7 +1401,12 @@
 
   /* ---- Real money display ---- */
   /* ---- Dealer work area: board, then pot, then tucked burns ---- */
+  /* THE BOARD IS THE ANCHOR. This column holds ONLY the community cards, so
+     its height never changes because of the pot and the cards stay centred
+     whether the game has one board or two. The pot is positioned around the
+     board, not the other way round. */
   .dealer-work-area{
+    --pot-gap: 16px;         /* guaranteed clear space below the lowest card */
     position:absolute;
     left:50%;
     top:50%;
@@ -1417,36 +1417,53 @@
     gap:5px;
     pointer-events:none;
   }
-  /* The pot sits directly under the community cards and the burn pile tucks
-     beneath its lower edge, so the burns read as being UNDER the chips. */
+  /* Taken OUT of the column flow. Previously the pot was a flex sibling of
+     the boards, so a wider pot label or a second board row pushed the whole
+     stack around and the chips could creep up over the lowest community
+     card. Anchored to the BOTTOM of the board column (top:100%) and shifted
+     left of the centreline, it can never reach the cards no matter how large
+     the pot grows — the gap is structural, not a z-index trick. */
   .pot-area{
-    position:relative;
+    position:absolute;
+    top:100%;
+    left:50%;
+    margin-top:var(--pot-gap);
+    transform:translateX(-118%);   /* dealer's left working area */
     display:flex;
-    justify-content:center;
-    margin-top:3px;
-    padding-bottom:9px;      /* room for the burn corners to peek out */
+    justify-content:flex-start;
+    padding-bottom:9px;            /* room for the burn corners to peek out */
+    pointer-events:none;
   }
   .pot-display{
     position:relative;
     z-index:2;               /* the pot covers the burns */
+    display:flex;
+    align-items:center;
+    gap:6px;
     font-family:'IBM Plex Mono', monospace;
     font-size:11px;
     letter-spacing:0.08em;
     color:var(--brass-300);
     background:rgba(11,46,34,0.92);
     border:1px solid rgba(201,162,39,0.35);
-    border-radius:2px;
+    border-radius:3px;
     padding:3px 9px;
     white-space:nowrap;
     pointer-events:none;
   }
-  /* Face-down burns, overlapped and shifted down-left so only a corner of
-     each shows from under the pot — the shape a dealer actually leaves. */
+  /* The pot already renders REAL denominated chip columns via RailChips
+     (renderPot -> renderChips), driven by the authoritative money-state
+     total — it was never a decorative block, so no second chip renderer is
+     introduced here. These rules only let that cluster breathe now that the
+     pot has its own space, and keep the amount legible beside it. */
+  .pot-display .chip-group{ display:inline-flex; align-items:flex-end; gap:1px; }
+  .pot-display .chip-amount{ margin-left:5px; color:var(--brass-300); }
+  /* Face-down burns tucked under the pot's lower-left edge, each one under
+     the last, so only a corner of each shows — the shape a dealer leaves. */
   .burn-pile{
     position:absolute;
-    left:50%;
+    left:6px;
     bottom:0;
-    transform:translateX(-58%);
     z-index:1;
     display:flex;
     pointer-events:none;
@@ -1460,9 +1477,16 @@
   }
   .burn-pile .mini-card:last-child{ margin-right:0; }
   @media (min-width: 1000px) and (min-height: 501px){
+    .dealer-work-area{ --pot-gap: 22px; }
     .pot-display{ font-size:13.5px; padding:4px 12px; }
     .burn-pile .mini-card{ width:19px; height:27px; margin-right:-11px; }
     .pot-area{ padding-bottom:12px; }
+  }
+  /* Narrow screens: less horizontal room, so sit the pot nearer the
+     centreline while keeping it fully below the cards. */
+  @media (max-width: 620px){
+    .dealer-work-area{ --pot-gap: 12px; }
+    .pot-area{ transform:translateX(-88%); }
   }
 
   /* ---- AI player action states ---- */
