@@ -176,7 +176,7 @@ const testBody = `
   }
   check('Hold\\'em renders correctly', renderFullHand("Texas Hold'em"));
   check('Omaha family (Drawmaha Hi) renders correctly', renderFullHand('Drawmaha Hi'));
-  check('Omaha family (Double Board Omaha) renders correctly', renderFullHand('Double Board Omaha'));
+  check('Omaha family (Big-O Double Board) renders correctly', renderFullHand('Big-O Double Board'));
   check('Stud family (Razz) renders correctly', renderFullHand('Razz'));
   check('Stud family (Stud Hi-Lo) renders correctly', renderFullHand('Stud Hi-Lo / 8-or-Better'));
   check('Super Stud discard case renders correctly', renderFullHand('Super Stud Hi-Lo 8 / Super Pat'));
