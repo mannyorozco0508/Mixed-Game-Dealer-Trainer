@@ -641,15 +641,18 @@
     border:3px solid var(--brass-500);
     box-shadow:inset 0 0 26px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.4);
   }
+  /* IN FLOW, not absolutely placed. These were positioned against the table
+     at top:38% / top:62%, which worked while they were direct children of
+     .poker-table. Moving them into .dealer-work-area (itself absolutely
+     positioned) re-based those percentages onto a small auto-sized flex
+     column, so board 2 collapsed on top of board 1 and only one flop was
+     visible. The work area already stacks and centres them; letting them
+     flow also gives it a real height, which is what .pot-area anchors to. */
   .board-row{
-    position:absolute;
-    left:50%;
     display:flex;
     gap:3px;
-    transform:translate(-50%,-50%);
+    justify-content:center;
   }
-  .board-row.board1{ top:38%; }
-  .board-row.board2{ top:62%; }
   .board-card{
     width:20px;
     height:29px;
@@ -734,18 +737,23 @@
   .seat-pos.has-button .seat-label{
     border-color:var(--chip-blue);
   }
+  /* ONE horizontal row, always. flex-wrap:wrap with a fixed max-width pushed
+     the fifth card onto a second line — the "T" shape — as soon as the cards
+     were bumped up in size on larger screens. Five cards now fan with
+     overlap instead of wrapping; a hand is never taller than one card. */
   .seat-cards{
     display:flex;
     justify-content:center;
+    align-items:flex-start;
     gap:2px;
-    flex-wrap:wrap;
-    max-width:88px;
+    flex-wrap:nowrap;
+    white-space:nowrap;
   }
   /* Hands of 5+ cards fan with controlled overlap instead of wrapping into a
      tall block — keeps seven-card stud readable without shrinking the cards.
      Ranks stay visible because only the left edge of each card is covered. */
   .seat-cards:has(.mini-card:nth-child(5)){ gap:0; }
-  .seat-cards:has(.mini-card:nth-child(5)) .mini-card + .mini-card{ margin-left:-4px; }
+  .seat-cards:has(.mini-card:nth-child(5)) .mini-card + .mini-card{ margin-left:-5px; }
   .seat-cards:has(.mini-card:nth-child(7)) .mini-card + .mini-card{ margin-left:-6px; }
   .mini-card{
     width:15px;
@@ -1212,7 +1220,8 @@
      is unaffected because only this one seat changes. */
   @media (min-width: 1000px) and (min-height: 501px){
     .seat-pos.you-seat .mini-card{ width:30px; height:42px; font-size:13.5px; }
-    .seat-pos.you-seat .seat-cards{ max-width:150px; }
+    /* No max-width: the row must never wrap. 5 bumped cards fan instead. */
+    .seat-pos.you-seat .seat-cards .mini-card + .mini-card{ margin-left:-6px; }
   /* Readable BY the human, but not exposed to the table: styled as a private
      hole card so the player is never misled about what opponents can see. */
   .mini-card.own-hole-card{ box-shadow:inset 0 0 0 2px var(--brass-500); }
