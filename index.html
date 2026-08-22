@@ -2193,8 +2193,15 @@ function updateTableView(stepIndex){
       if(!rule || !rule.patLabel) return false;   // only games that offer Pat
       const map = dealState.seatSlotMaps[seat] || [];
       const held = map.map(s => (dealState.seatHoleCards[seat] || [])[s]).filter(Boolean);
-      const pat = window.RailDraw.aiPatDecision(held, h =>
-        window.RailAction.tierForSeat(h, [], tierFamilyForGame(currentScenario)));
+      // Judged by THIS game's own showdown objective, not by the betting
+      // tier: Super Baducey and Super Badacey have no Hi-Lo name match and
+      // were falling through to the plain 'high' family, which locked flushes
+      // and trips — the worst possible holdings in a badugi split game.
+      const pat = window.RailDraw.superPatDecision
+        ? window.RailDraw.superPatDecision(currentScenario.name, held,
+            window.RailShowdown, window.RailAI)
+        : window.RailDraw.aiPatDecision(held, h =>
+            window.RailAction.tierForSeat(h, [], tierFamilyForGame(currentScenario)));
       if(pat) seatPatLocked[seat] = true;
       return pat;
     }
