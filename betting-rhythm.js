@@ -309,11 +309,17 @@ function shapeAction(baseAction, ctx){
       let fold = 0.55 + p.foldBias * 0.15 - adj * 0.10;
       if(rng() < Math.max(0.10, Math.min(0.92, fold))) resolved = AI.ACTION.FOLD;
     } else if(allow(AI.ACTION.FOLD) && tier > AI.TIER.WEAK && tier < AI.TIER.PREMIUM){
-      let fold = 0.06;
+      /* Measured on 440 hands: STRONG was folding 31% at a steep price and
+         40% at a terrible one, and MARGINAL folded 18% of the time even when
+         the price was cheap. A made strong hand does not release that often,
+         and a marginal hand getting a good price is exactly the hand that
+         should defend. The price LADDER is untouched — only how far a real
+         holding discounts it. */
+      let fold = 0.04;                       // cheap: defend a good price
       if(price > 0.45) fold = 0.55;
       else if(price > 0.30) fold = 0.34;
-      else if(price > 0.15) fold = 0.16;
-      if(tier === AI.TIER.STRONG) fold *= 0.45;
+      else if(price > 0.15) fold = 0.13;     // fair: continue more often
+      if(tier === AI.TIER.STRONG) fold *= 0.30;
       // Personality tilts the decision without making it deterministic —
       // a tight player still calls sometimes, a sticky player still folds.
       fold += p.foldBias * 0.16;
@@ -343,6 +349,11 @@ function shapeAction(baseAction, ctx){
 
   // An engine FOLD may be reconsidered when the price is genuinely good.
   else if(action === AI.ACTION.FOLD && allow(AI.ACTION.CALL)){
+    /* A premium hand does not fold. It was measured folding 36% at a steep
+       price and 53% at a terrible one — a monster laying down because the bet
+       was large is not poker, it is the price ladder being applied to a hand
+       the ladder should never reach. */
+    if(tier >= AI.TIER.PREMIUM) return AI.ACTION.CALL;
     let chance = 0.04;
     if(tier === AI.TIER.MARGINAL) chance = 0.20;
     else if(tier === AI.TIER.STRONG) chance = 0.38;
