@@ -25,6 +25,7 @@
       },
       {
         street:"Draw 1",
+        requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
         prompt:"First betting round wraps up. What's next?",
         options:[
           {text:"Burn, then deal Draw 1", correct:true, feedback:"Correct — always burn before a draw, even if nobody's drawing cards."},
@@ -34,6 +35,7 @@
       },
       {
         street:"Draw 2",
+        requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
         prompt:"Draw 1 betting wraps up. What's next?",
         options:[
           {text:"Burn, then deal Draw 2", correct:true, feedback:"Right — same rule, every draw round, no exceptions."},
@@ -53,6 +55,7 @@
       },
       {
         street:"Draw 3",
+        requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
         prompt:"Draw 2 betting wraps up. What's next?",
         options:[
           {text:"Burn, then deal Draw 3", correct:true, feedback:"Correct — the third and final draw, same burn rule applies."},
@@ -97,6 +100,7 @@
       },
       {
         street:"Draw Declared",
+        requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
         prompt:"Draws are declared. Now you deal the turn AND get players their replacement cards. How many times do you burn?",
         options:[
           {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. One burn covers both the turn card and the players' replacement cards — Drawmaha's signature quirk."},
@@ -795,6 +799,7 @@
           },
           {
             street:"Draw Declared",
+            requiresDraw:true,   // PHYSICAL draw street: cards are actually replaced here
             prompt:"Draws are declared. Now you deal the turn AND get players their replacement cards. How many times do you burn?",
             options:[
               {text:"Burn once — deal the turn to the board, then deal replacements to players with no second burn", correct:true, feedback:"Exactly right. This is Drawmaha's signature quirk: one burn covers both the turn card and the players' replacement cards."},
