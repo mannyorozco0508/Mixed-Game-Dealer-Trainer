@@ -2467,6 +2467,10 @@ function runNextAction(){
         // Price context: what a call costs relative to what is out there.
         toCall: (moneyState && window.RailMoney) ? window.RailMoney.callAmount(moneyState, seat) : 0,
         potSize: potNow,
+        // How many wagers this street has already seen. Legality is decided by
+        // the cap (and its heads-up exemption); this is only how much appetite
+        // a player has left for yet another raise.
+        raisesSoFar: moneyState ? moneyState.raisesThisStreet : 0,
         invested: moneyState ? moneyState.handContrib[seat] : 0,
         stack: moneyState ? moneyState.stacks[seat] : 0,
         playersLeft: liveSeats.length
