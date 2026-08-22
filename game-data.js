@@ -920,9 +920,9 @@
           {
             street:"River",
             difficulty:3,
-            prompt:"A pot layer of $201 must be split between the boards, and two players tie for the Top Board. How many separate odd-chip decisions are involved?",
+            prompt:"There is $201 in the pot. It splits between the two boards, and two players tie for the Top Board. How many separate odd-chip decisions are involved?",
             options:[
-              {text:"Two — the odd chip between boards goes to the Top Board, then the tied Top winners split their share under the tie rule", correct:true, feedback:"Correct. These are independent decisions and conflating them is a common payout error. Board allocation resolves first, then ties within a board."},
+              {text:"Two — the odd chip between boards goes to the Top Board, then the tied Top winners split their share under the tie rule", correct:true, feedback:"Correct. $201 splits $101 to the Top Board and $100 to the Bottom Board — that is the first odd chip. The $101 Top share will not divide evenly between two tied players either, so a second odd chip is awarded under the tie rule. Board allocation resolves first, then ties within a board. Note these shares are NOT side pots — a side pot only exists when players have contributed different amounts."},
               {text:"One — the odd chip simply goes to whoever wins the Top Board", correct:false, feedback:"That collapses two rules into one. The board split happens first, then the tie within that board is resolved separately."},
               {text:"None — an odd pot is split evenly and the extra chip stays in the rack", correct:false, feedback:"Every chip is awarded. Odd chips always have a defined destination."}
             ]
