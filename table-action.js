@@ -142,6 +142,23 @@ function createRound(state){
     complete: first === null,
     log: []
   };
+  /* A hand with fewer than two contenders is over. The round used to open
+     anyway and hand the turn to the sole survivor, who was then offered CHECK
+     and BET into an empty field — on a real device the human saw "YOUR ACTION
+     / CHECK / BET $40" while the showdown question was already on screen.
+     Betting cannot continue once the pot is uncontested, so the round knows
+     it here rather than relying on the table to notice. */
+  const contenders = [];
+  for(let s = 0; s < round.tableSeats; s++){
+    if(s !== round.sitOutSeat && !round.foldedSeats.has(s)) contenders.push(s);
+  }
+  if(contenders.length <= 1){
+    round.complete = true;
+    round.current = null;
+    round.endedByFolds = true;
+    round.uncontested = true;
+    return round;
+  }
   if(forced === 'bring-in' && state.forcedBetSeat !== undefined && state.forcedBetSeat !== null){
     round.actedSinceAggression.add(state.forcedBetSeat);
     // Order is anchored to the seat that actually posted, not to whatever
