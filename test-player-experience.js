@@ -208,7 +208,7 @@ console.log('=== In Play & Learn the human reads their own hole cards ===');
 {
   const CASES = [
     ["Texas Hold'em", 2, 0], ['Big O Hi-Lo', 5, 0], ['Big O PLO', 5, 0],
-    ['Double Board Omaha', 5, 0], ['Badugi', 4, 0], ['2-7 Lowball', 5, 0],
+    ['Big-O Double Board', 5, 0], ['Badugi', 4, 0], ['2-7 Lowball', 5, 0],
     ['A-5 Lowball', 5, 0], ['Badacey', 5, 0], ['Baducey', 5, 0], ['Archie', 5, 0],
     ['Drawmaha Hi', 5, 0], ['Pineapple', 3, 0], ['Crazy Pineapple', 3, 0],
     ['Stud Hi-Lo / 8-or-Better', 3, 1], ['Razz', 3, 1],
