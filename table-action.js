@@ -37,7 +37,14 @@ function orderFrom(start, tableSeats, isEligible){
    state: { dealCat, tableSeats, buttonSeat, sitOutSeat, foldedSeats:Set,
             street (0-based), upCards: {seat: [cards]} } */
 function firstActor(state){
-  const eligible = seat => seat !== state.sitOutSeat && !state.foldedSeats.has(seat);
+  // A seat with no chips behind cannot open a street, cannot bring in, and
+  // cannot be the first to act after the button.
+  const allIn = state.allInSeats instanceof Set
+    ? state.allInSeats
+    : new Set(state.allInSeats || []);
+  const eligible = seat => seat !== state.sitOutSeat
+    && !state.foldedSeats.has(seat)
+    && !allIn.has(seat);
 
   if(isButtonGame(state.dealCat)){
     if(state.buttonSeat === null || state.buttonSeat === undefined) return null;
@@ -85,33 +92,70 @@ function firstActor(state){
   return lead;
 }
 
-/* ---------- Legal actions ---------- */
+/* ---------- Legal actions ----------
+   `round.raiseCapped` is set by the table from money-state before each
+   decision. table-action deliberately holds no chip accounting, so the cap
+   COUNT lives in money-state (raisesThisStreet / rules.raiseCap) and only the
+   resulting yes/no crosses over. Without it a capped street offered RAISE
+   forever: an audit of 440 hands found a single street with 52 wagers. */
 function legalActions(round){
   // No outstanding bet -> check or bet. Outstanding bet -> fold, call, raise.
-  return round.betOutstanding
-    ? [ACTION.FOLD, ACTION.CALL, ACTION.RAISE]
-    : [ACTION.CHECK, ACTION.BET];
+  if(!round.betOutstanding) return [ACTION.CHECK, ACTION.BET];
+  return round.raiseCapped
+    ? [ACTION.FOLD, ACTION.CALL]
+    : [ACTION.FOLD, ACTION.CALL, ACTION.RAISE];
 }
 
 /* ---------- Betting round state machine ----------
    Tracks turn order and closure WITHOUT any chip amounts. */
 function createRound(state){
   const first = firstActor(state);
-  return {
+  /* A forced bet is already on the table when the street opens: blinds in
+     button games, the bring-in in stud. The round used to open with
+     betOutstanding false regardless, so legalActions offered CHECK to a seat
+     that owed the big blind — 305 illegal checks across a 440-hand audit,
+     every one of them on the opening street.
+
+     'blinds'   — the big blind is the standing wager and still has the
+                  option, so nobody has acted since it yet.
+     'bring-in' — the bring-in seat's forced post IS its action for the
+                  street, so it has acted and the turn moves on. */
+  const forced = state.forcedBet || null;
+  const round = {
     dealCat: state.dealCat,
     tableSeats: state.tableSeats,
     sitOutSeat: state.sitOutSeat,
     foldedSeats: new Set(state.foldedSeats),
+    // Seats with no chips behind. They remain IN the hand and eligible for
+    // the pot, but they can never act again. Without this the round handed
+    // the turn back to a $0 seat, whose "raise" of nothing reset the closure
+    // condition — two all-in seats ping-ponged forever and the street never
+    // ended. Money lives in money-state; this is only the fact of it.
+    allInSeats: new Set(state.allInSeats || []),
     street: state.street,
     current: first,
-    betOutstanding: false,
-    aggressor: null,
+    betOutstanding: !!forced,
+    // Set per-decision by the table from money-state.raiseCapReached().
+    raiseCapped: false,
+    aggressor: forced ? (state.forcedBetSeat === undefined ? null : state.forcedBetSeat) : null,
     actedSinceAggression: new Set(),
     complete: first === null,
     log: []
   };
+  if(forced === 'bring-in' && state.forcedBetSeat !== undefined && state.forcedBetSeat !== null){
+    round.actedSinceAggression.add(state.forcedBetSeat);
+    // Order is anchored to the seat that actually posted, not to whatever
+    // firstActor computed. If the two ever disagree the posting seat wins —
+    // it is the one whose money is on the table.
+    const next = nextActor(round, state.forcedBetSeat);
+    round.current = next;
+    if(next === null){ round.complete = true; }
+  }
+  return round;
 }
 
+/* Seats still IN the hand — folded and sat-out are gone, all-in seats stay,
+   because they still contest the pot at showdown. */
 function activeSeats(round){
   const out = [];
   for(let s = 0; s < round.tableSeats; s++){
@@ -120,10 +164,47 @@ function activeSeats(round){
   return out;
 }
 
+/* Seats that can still make a decision this street. */
+function seatsYetToAct(round){
+  const allIn = round.allInSeats || new Set();
+  return activeSeats(round).filter(s => !allIn.has(s));
+}
+
+/* A seat has run out of chips. Called by the table once money-state says so. */
+function markAllIn(round, seat){
+  if(!round) return round;
+  if(!round.allInSeats) round.allInSeats = new Set();
+  round.allInSeats.add(seat);
+  if(round.complete) return round;
+  return settle(round, seat);
+}
+
+/* Shared closure test: is anyone left who still has to act? */
+function settle(round, from){
+  const stillIn = activeSeats(round);
+  if(stillIn.length <= 1){
+    round.complete = true;
+    round.current = null;
+    round.endedByFolds = true;
+    return round;
+  }
+  const yetToAct = seatsYetToAct(round);
+  if(yetToAct.length === 0 || yetToAct.every(s => round.actedSinceAggression.has(s))){
+    round.complete = true;
+    round.current = null;
+    return round;
+  }
+  const next = nextActor(round, from === null || from === undefined ? round.tableSeats - 1 : from);
+  round.current = next;
+  if(next === null){ round.complete = true; }
+  return round;
+}
+
 function nextActor(round, from){
+  const allIn = round.allInSeats || new Set();
   for(let n = 1; n <= round.tableSeats; n++){
     const seat = (from + n) % round.tableSeats;
-    if(seat !== round.sitOutSeat && !round.foldedSeats.has(seat)) return seat;
+    if(seat !== round.sitOutSeat && !round.foldedSeats.has(seat) && !allIn.has(seat)) return seat;
   }
   return null;
 }
@@ -145,25 +226,7 @@ function applyAction(round, seat, action){
     round.actedSinceAggression.add(seat);
   }
 
-  const remaining = activeSeats(round);
-  // Only one player left -> hand ends without further action.
-  if(remaining.length <= 1){
-    round.complete = true;
-    round.current = null;
-    round.endedByFolds = true;
-    return round;
-  }
-
-  // Round closes when every active player has acted since the last aggression.
-  const allActed = remaining.every(s => round.actedSinceAggression.has(s));
-  if(allActed){
-    round.complete = true;
-    round.current = null;
-    return round;
-  }
-
-  round.current = nextActor(round, seat);
-  return round;
+  return settle(round, seat);
 }
 
 /* ---------- AI context bridge ----------
@@ -192,6 +255,9 @@ function chooseAction(round, opts){
   if(legal.indexOf(action) === -1){
     if(action === ACTION.CHECK && !canCheck) action = ACTION.FOLD;
     else if(action === ACTION.BET && round.betOutstanding) action = ACTION.RAISE;
+    // A raise the cap has closed off becomes a CALL. Folding a hand that
+    // wanted to raise would be far worse than flat-calling it.
+    else if(action === ACTION.RAISE && legal.indexOf(ACTION.CALL) !== -1) action = ACTION.CALL;
     else if(action === ACTION.CALL && canCheck) action = ACTION.CHECK;
     else action = canCheck ? ACTION.CHECK : ACTION.FOLD;
   }
@@ -251,6 +317,8 @@ exports.legalActions = legalActions;
 exports.createRound = createRound;
 exports.applyAction = applyAction;
 exports.activeSeats = activeSeats;
+exports.seatsYetToAct = seatsYetToAct;
+exports.markAllIn = markAllIn;
 exports.nextActor = nextActor;
 exports.chooseAction = chooseAction;
 exports.tierForSeat = tierForSeat;
