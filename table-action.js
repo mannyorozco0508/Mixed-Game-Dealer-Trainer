@@ -211,6 +211,28 @@ function tierForSeat(cards, board, family){
       case 'low-a5':  return AI.classifyA5Low(E.bestLowA5FromN(cards).score);
       case 'low-27':  return AI.classify27Low(E.bestLow27FromN(cards).score);
       case 'badugi':  return AI.classifyBadugi(E.bestBadugi(cards));
+      /* Split-pot eights. Without this case the family fell through to the
+         high-only default, so a made 8-or-better low scored as high-card and
+         graded WEAK — a lock low folded to a single bet on 6th street.
+         Both halves are read with the already-validated evaluators and
+         combined by classifyOmahaHiLo, which was written for exactly this
+         and had never been wired to a caller. No new poker math.
+         The family holds two shapes: boardless stud (Stud Hi-Lo, Super Stud)
+         and Big O Hi-Lo, which the name test routes here ahead of 'omaha'.
+         Big O must use 2-hole-plus-3-board Omaha selection, so the board
+         decides which pair of evaluators is correct. */
+      case 'stud-hilo': {
+        const useOmaha = !!(board && board.length >= 3);
+        const all = board && board.length ? cards.concat(board) : cards;
+        if(all.length < 5) return AI.TIER.MARGINAL; // too early to read
+        const highScore = useOmaha
+          ? E.bestOmahaHigh(cards, board).score
+          : E.bestHighFromN(all).score;
+        const lowResult = useOmaha
+          ? E.bestOmahaLowA5(cards, board)
+          : E.bestLowA5FromN(all);
+        return AI.classifyOmahaHiLo(highScore, lowResult ? lowResult.score : null);
+      }
       default: {
         const all = board && board.length ? cards.concat(board) : cards;
         if(all.length < 5) return AI.TIER.MARGINAL; // too early to read
