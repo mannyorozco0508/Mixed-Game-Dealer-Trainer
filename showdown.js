@@ -229,7 +229,7 @@ const SHOWDOWN_RULES = {
   'Drawmaha 49':              { family:'omaha+points',  needsBoard:5 },
   'Drawmaha Badugi':          { family:'omaha+badugi',  needsBoard:5 },
   // --- Two boards ---
-  'Double Board Omaha':       { family:'doubleboard',   needsBoard:5, needsBoard2:5 },
+  'Big-O Double Board':       { family:'doubleboard',   needsBoard:5, needsBoard2:5 },
   // --- Big O (five-card Omaha), strict 2-from-hole + 3-from-board ---
   'Big O Hi-Lo':              { family:'omaha-hilo8',   needsBoard:5 },
   'Big O PLO':                { family:'omaha-high',    needsBoard:5 },
@@ -357,7 +357,11 @@ function buildSides(family, ctx){
    now resolve to the single canonical entry. */
 const LEGACY_GAME_ALIASES = {
   'Super Stud / Super Pat':   'Super Stud Hi-Lo 8 / Super Pat',
-  'Super Hi-Lo Stud':         'Super Stud Hi-Lo 8 / Super Pat'
+  'Super Hi-Lo Stud':         'Super Stud Hi-Lo 8 / Super Pat',
+  // The game was always dealt as five-card Omaha on two boards; only its
+  // label said "Omaha". The canonical key is now the display name, and the
+  // old label resolves onto it so saved progress and stats keep working.
+  'Double Board Omaha':       'Big-O Double Board'
 };
 
 /* Canonical name for any game name, current or legacy. */
